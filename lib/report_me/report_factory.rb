@@ -56,7 +56,16 @@ module ReportMe
     def report_exists?(name, von, bis)
       ActiveRecord::Base.connection.select_value("select 1 from #{report_information_table_name} where report = '#{name}' and von = '#{von}' and bis = '#{bis}'") != nil
     end
-  
+    
+    def reset
+      exec("drop table if exists #{report_information_table_name};")
+      
+      periods.each do |period|
+        @reports.each do |r|
+          exec("drop table if exists #{r.table_name(period[:name])};")
+        end
+      end
+    end
   
     def run
     
@@ -108,7 +117,7 @@ module ReportMe
             exec("create table #{table_name} ENGINE=InnoDB default CHARSET=utf8 as #{sql} limit 0;")
           end
         
-          puts sql
+          # puts sql
         
           if !report_exist || period[:name] == :today
             ActiveRecord::Base.transaction do
