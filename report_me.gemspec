@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |s|
   s.name = %q{report_me}
-  s.version = "0.0.1"
+  s.version = "0.0.3"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Jan Zimmek"]
@@ -23,6 +23,7 @@ Gem::Specification.new do |s|
      "lib/report_me.rb",
      "lib/report_me/report.rb",
      "lib/report_me/report_factory.rb",
+     "report_me.gemspec",
      "test/report_me_test.rb",
      "test/test_helper.rb"
   ]
