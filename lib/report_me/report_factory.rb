@@ -75,12 +75,12 @@ module ReportMe
             )
             ENGINE=InnoDB default CHARSET=utf8;
         SQL
-        ActiveRecord::Base.connection.execute(ddl)
+        exec(ddl)
       end
     
       if debug
         # just for testing
-        ActiveRecord::Base.connection.execute("truncate #{report_information_table_name};")
+        exec("truncate #{report_information_table_name};")
       end
     
       periods.each do |period|
@@ -94,7 +94,7 @@ module ReportMe
 
           if debug
             # drop and create table while in testing mode
-            ActiveRecord::Base.connection.execute("drop table if exists #{table_name};")
+            exec("drop table if exists #{table_name};")
           end
 
           table_exist   = r.table_exist?(period[:name])
@@ -105,7 +105,7 @@ module ReportMe
         
         
           unless table_exist
-            ActiveRecord::Base.connection.execute("create table #{table_name} ENGINE=InnoDB default CHARSET=utf8 as #{sql} limit 0;")
+            exec("create table #{table_name} ENGINE=InnoDB default CHARSET=utf8 as #{sql} limit 0;")
           end
         
           puts sql
