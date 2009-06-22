@@ -1,6 +1,28 @@
 = report_me
 
-Description goes here.
+ReportMe is a thin ruby wrapper around your reporting sql queries which empowers you to automate, historicize, graph and mail them in an easy manner.
+
+== Usage
+
+  ReportFactory.create do
+    report :visits do
+      source do |von, bis|
+        <<-SQL
+          select
+            date(v.created_at) as datum,
+            channel,
+            count(1) as cnt
+          from
+            visits v
+          where
+            v.created_at between '#{von}' and '#{bis}'
+          group by
+            date(v.created_at),
+            channel
+        SQL
+      end
+    end
+  end
 
 == Copyright
 
