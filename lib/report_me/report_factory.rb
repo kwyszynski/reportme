@@ -60,7 +60,7 @@ module ReportMe
   
     def run
     
-      debug = true
+      debug = false
     
       unless report_information_table_name_exist?
         ddl = <<-SQL
