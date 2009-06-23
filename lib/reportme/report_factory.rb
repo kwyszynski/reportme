@@ -84,6 +84,24 @@ module Reportme
       end
     end
     
+    def ensure_report_informations_table_exist
+      unless report_information_table_name_exist?
+        ddl = <<-SQL
+          create
+            table report_informations
+            (
+              report varchar(255) not null,
+              von datetime not null,
+              bis datetime not null,
+              created_at datetime not null,
+              primary key (report, von, bis)
+            )
+            ENGINE=InnoDB default CHARSET=utf8;
+        SQL
+        exec(ddl)
+      end
+    end
+    
     def try_weekly_report_by_daily_reports(report, _von, _bis)
 
       table_name = report.table_name(:week)
@@ -114,21 +132,7 @@ module Reportme
 
     def run
     
-      unless report_information_table_name_exist?
-        ddl = <<-SQL
-          create
-            table report_informations
-            (
-              report varchar(255) not null,
-              von datetime not null,
-              bis datetime not null,
-              created_at datetime not null,
-              primary key (report, von, bis)
-            )
-            ENGINE=InnoDB default CHARSET=utf8;
-        SQL
-        exec(ddl)
-      end
+      ensure_report_informations_table_exist
     
       while !@since.future?
         
