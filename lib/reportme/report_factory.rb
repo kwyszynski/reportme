@@ -71,8 +71,6 @@ module Reportme
   
     def run
     
-      debug = false
-    
       unless report_information_table_name_exist?
         ddl = <<-SQL
           create
@@ -89,11 +87,6 @@ module Reportme
         exec(ddl)
       end
     
-      if debug
-        # just for testing
-        exec("truncate #{report_information_table_name};")
-      end
-
       while !@since.future?
         
         periods(@since).each do |period|
@@ -108,11 +101,6 @@ module Reportme
             bis = period[:bis].strftime("%Y-%m-%d 23:59:59")
 
             table_name = r.table_name(period_name)
-
-            # if debug
-            #   # drop and create table while in testing mode
-            #   exec("drop table if exists #{table_name};")
-            # end
 
             table_exist   = r.table_exist?(period_name)
             sql           = r.sql(von, bis, period_name)
