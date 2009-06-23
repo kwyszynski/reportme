@@ -75,32 +75,41 @@ module Reportme
       puts "von: #{von} ... bis: #{bis}"
     end
 
-    def days(von, bis)
-      
-      von = von.to_date
-      bis = bis.to_date
-      
-      raise "bis: #{bis} vor von: #{von}" if bis < von
-      
-      days = 0
-      
-      while von < bis
-        von += 1.day
-        days += 1
-      end
-      
-      days
-    end
-
     def ensure_report_table_exist(report, period)
-
       unless report.table_exist?(period)
         table_name  = report.table_name(period)
         sql         = report.sql('0000-00-00 00:00:00', '0000-00-00 00:00:00', period)
 
         exec("create table #{table_name} ENGINE=InnoDB default CHARSET=utf8 as #{sql} limit 0;")
       end
+    end
+    
+    def try_weekly_report_by_daily_reports(report, _von, _bis)
+
+      table_name = report.table_name(:week)
+
+      von = _von.strftime("%Y-%m-%d 00:00:00")
+      bis = _bis.strftime("%Y-%m-%d 23:59:59")
       
+      existing_daily_reports = select_value(<<-SQL
+        select
+          count(1) cnt
+        from
+          #{report_information_table_name}
+        where
+          report = '#{report.table_name(:day)}'
+          and von between '#{von}' and '#{(_von + 6.days).strftime("%Y-%m-%d 23:59:59")}'
+      SQL
+      ).to_i
+      
+      puts "weekly report depends on 7 daily reports ... #{existing_daily_reports} daily found"
+      
+      if existing_daily_reports == 7
+        ActiveRecord::Base.transaction do
+          exec("insert into #{report_information_table_name} values ('#{table_name}', '#{von}', '#{bis}', now());")
+          exec("insert into #{table_name} select * from #{report.table_name(:day)} where von between '#{von}' and '#{(_von + 6.days).strftime("%Y-%m-%d 00:00:00")}';")
+        end
+      end
     end
 
     def run
@@ -137,37 +146,24 @@ module Reportme
             von = _von.strftime("%Y-%m-%d 00:00:00")
             bis = _bis.strftime("%Y-%m-%d 23:59:59")
 
-            # if period_name == :week
-            # 
-            #   existing = select_value(<<-SQL
-            #     select
-            #       count(1) cnt
-            #     from
-            #       #{report_information_table_name}
-            #     where
-            #       report = '#{r.table_name(:day)}'
-            #       and von between '#{von}' and '#{(_von + 6.days).strftime("%Y-%m-%d 23:59:59")}'
-            #   SQL
-            #   )
-            #   
-            #   puts "**** #{existing}"
-            #   
-            # end
-
-            
             table_name = r.table_name(period_name)
 
             table_exist   = r.table_exist?(period_name)
             sql           = r.sql(von, bis, period_name)
-            report_exist  = report_exists?(table_name, von, bis)
         
             puts "report: #{r.table_name(period_name)} exist: #{table_exist}"
 
             ensure_report_table_exist(r, period_name)
-        
-            if !report_exist || period_name == :today
+            
+            report_exists = report_exists?(table_name, von, bis)
+            
+            try_weekly_report_by_daily_reports(r, _von, _bis) if period_name == :week && !report_exists
+
+            report_exists = report_exists?(table_name, von, bis)
+            
+            if !report_exists || period_name == :today
               ActiveRecord::Base.transaction do
-                exec("insert into #{report_information_table_name} values ('#{table_name}', '#{von}', '#{bis}', now());") unless report_exist
+                exec("insert into #{report_information_table_name} values ('#{table_name}', '#{von}', '#{bis}', now());") unless report_exists
             
                 if period_name == :today
                   exec("truncate #{table_name};")
