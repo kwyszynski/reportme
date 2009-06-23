@@ -1,11 +1,12 @@
-= report_me
+= Reportme
 
-ReportMe is a thin ruby wrapper around your reporting sql queries which empowers you to automate, historicize, graph and mail them in an easy manner.
+Reportme is a thin ruby wrapper around your reporting sql queries which empowers you to automate, historicize, graph and mail them in an easy manner.
 
 == Usage
 
-  ReportFactory.create do
+  Reportme::ReportFactory.create do
     report :visits do
+      periods :day, :week, :month
       source do |von, bis|
         <<-SQL
           select
