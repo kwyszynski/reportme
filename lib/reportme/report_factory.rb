@@ -1,11 +1,10 @@
-require 'activerecord'
-require 'report_me/report'
+require 'reportme/report'
 
-module ReportMe
+module Reportme
   class ReportFactory
   
     def self.create(&block)
-      rme = ReportMe::ReportFactory.new
+      rme = ReportFactory.new
       rme.instance_eval(&block)
       rme.run
       rme
@@ -95,7 +94,9 @@ module ReportMe
       periods.each do |period|
       
         @reports.each do |r|
-        
+          
+          next unless r.wants_period?(period[:name])
+          
           von = period[:von].strftime("%Y-%m-%d 00:00:00")
           bis = period[:bis].strftime("%Y-%m-%d 23:59:59")
 
@@ -117,19 +118,19 @@ module ReportMe
             exec("create table #{table_name} ENGINE=InnoDB default CHARSET=utf8 as #{sql} limit 0;")
           end
         
-          # puts sql
+          puts sql
         
-          if !report_exist || period[:name] == :today
-            ActiveRecord::Base.transaction do
-              exec("insert into #{report_information_table_name} values ('#{table_name}', '#{von}', '#{bis}', now());") unless report_exist
-
-              if period[:name] == :today
-                exec("truncate #{table_name};")
-              end
-            
-              exec("insert into #{table_name} #{sql};")
-            end
-          end
+          # if !report_exist || period[:name] == :today
+          #   ActiveRecord::Base.transaction do
+          #     exec("insert into #{report_information_table_name} values ('#{table_name}', '#{von}', '#{bis}', now());") unless report_exist
+          # 
+          #     if period[:name] == :today
+          #       exec("truncate #{table_name};")
+          #     end
+          #   
+          #     exec("insert into #{table_name} #{sql};")
+          #   end
+          # end
 
         
         end
@@ -141,7 +142,7 @@ module ReportMe
     end
   
     def report(name, &block)
-      r = ReportMe::Report.new(name)
+      r = Report.new(name)
       r.instance_eval(&block)
     
       @reports << r

@@ -4,12 +4,13 @@ require 'rake'
 begin
   require 'jeweler'
   Jeweler::Tasks.new do |gem|
-    gem.name = "report_me"
+    gem.name = "reportme"
     gem.summary = "Ruby wrapper to automate sql reports"
     gem.description = "ReportMe is a thin ruby wrapper around your reporting sql queries which empowers you to automate, historicize, graph and mail them in an easy manner."
     gem.email = "jan.zimmek@web.de"
     gem.homepage = "http://github.com/jzimmek/report_me"
     gem.authors = ["Jan Zimmek"]
+    gem.files = FileList['lib/**/*.rb', 'bin/*', '[A-Z]*', 'test/**/*'].to_a
     # gem is a Gem::Specification... see http://www.rubygems.org/read/chapter/20 for additional settings
   end
 

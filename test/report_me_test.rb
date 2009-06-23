@@ -90,4 +90,7 @@ class ReportMeTest < Test::Unit::TestCase
     assert_equal 3, one("select cnt from visits_day where channel = 'sem' and datum = date_sub(curdate(), interval 1 day)")["cnt"].to_i
   end
   
+  should "handle today and day periods but nothing else" do
+  end
+  
 end

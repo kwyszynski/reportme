@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 
 Gem::Specification.new do |s|
-  s.name = %q{report_me}
+  s.name = %q{reportme}
   s.version = "0.0.4"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
@@ -14,16 +14,13 @@ Gem::Specification.new do |s|
      "README.rdoc"
   ]
   s.files = [
-    ".document",
-     ".gitignore",
-     "LICENSE",
+    "LICENSE",
      "README.rdoc",
      "Rakefile",
      "VERSION",
-     "lib/report_me.rb",
-     "lib/report_me/report.rb",
-     "lib/report_me/report_factory.rb",
-     "report_me.gemspec",
+     "lib/reportme.rb",
+     "lib/reportme/report.rb",
+     "lib/reportme/report_factory.rb",
      "test/report_me_test.rb",
      "test/test_helper.rb"
   ]
