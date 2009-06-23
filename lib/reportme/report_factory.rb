@@ -95,23 +95,25 @@ module Reportme
       
         @reports.each do |r|
           
-          next unless r.wants_period?(period[:name])
+          period_name = period[:name]
+          
+          next unless r.wants_period?(period_name)
           
           von = period[:von].strftime("%Y-%m-%d 00:00:00")
           bis = period[:bis].strftime("%Y-%m-%d 23:59:59")
 
-          table_name = r.table_name(period[:name])
+          table_name = r.table_name(period_name)
 
           if debug
             # drop and create table while in testing mode
             exec("drop table if exists #{table_name};")
           end
 
-          table_exist   = r.table_exist?(period[:name])
-          sql           = r.sql(von, bis)
+          table_exist   = r.table_exist?(period_name)
+          sql           = r.sql(von, bis, period_name)
           report_exist  = report_exists?(table_name, von, bis)
         
-          puts "report: #{r.name}_#{period[:name]}"
+          puts "report: #{r.name}_#{period_name}"
         
         
           unless table_exist
@@ -119,11 +121,11 @@ module Reportme
           end
         
         
-          if !report_exist || period[:name] == :today
+          if !report_exist || period_name == :today
             ActiveRecord::Base.transaction do
               exec("insert into #{report_information_table_name} values ('#{table_name}', '#{von}', '#{bis}', now());") unless report_exist
           
-              if period[:name] == :today
+              if period_name == :today
                 exec("truncate #{table_name};")
               end
             

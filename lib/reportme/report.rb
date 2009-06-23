@@ -25,8 +25,8 @@ module Reportme
       @periods.include?(period)
     end
     
-    def sql(von, bis)
-      @source.call(von, bis)
+    def sql(von, bis, period_name)
+      @source.call(von, bis, period_name)
     end
   
     def table_name(period)
