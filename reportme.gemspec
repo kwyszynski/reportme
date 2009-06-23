@@ -2,12 +2,12 @@
 
 Gem::Specification.new do |s|
   s.name = %q{reportme}
-  s.version = "0.0.6"
+  s.version = "0.0.7"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Jan Zimmek"]
   s.date = %q{2009-06-23}
-  s.description = %q{ReportMe is a thin ruby wrapper around your reporting sql queries which empowers you to automate, historicize, graph and mail them in an easy manner.}
+  s.description = %q{Reportme is a thin ruby wrapper around your reporting sql queries which empowers you to automate, historicize, graph and mail them in an easy manner.}
   s.email = %q{jan.zimmek@web.de}
   s.extra_rdoc_files = [
     "LICENSE",
@@ -24,7 +24,7 @@ Gem::Specification.new do |s|
      "test/report_me_test.rb",
      "test/test_helper.rb"
   ]
-  s.homepage = %q{http://github.com/jzimmek/report_me}
+  s.homepage = %q{http://github.com/jzimmek/reportme/tree/master}
   s.rdoc_options = ["--charset=UTF-8"]
   s.require_paths = ["lib"]
   s.rubygems_version = %q{1.3.4}
