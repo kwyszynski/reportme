@@ -3,18 +3,21 @@ require 'reportme/report'
 module Reportme
   class ReportFactory
   
-    def self.create(&block)
-      rme = ReportFactory.new
+    def self.create(since=Date.today, &block)
+      rme = ReportFactory.new(since)
       rme.instance_eval(&block)
       rme.run
       rme
     end
   
-    def initialize
+    def initialize(since)
+      raise "since cannot be in the future" if since.future?
+      
       @reports = []
+      @since = since.to_date
     end
   
-    def periods(today = DateTime.now)
+    def periods(today = Date.today)
 
       periods = []
 
@@ -79,7 +82,7 @@ module Reportme
               von datetime not null,
               bis datetime not null,
               created_at datetime not null,
-              primary key (report)
+              primary key (report, von, bis)
             )
             ENGINE=InnoDB default CHARSET=utf8;
         SQL
@@ -90,52 +93,57 @@ module Reportme
         # just for testing
         exec("truncate #{report_information_table_name};")
       end
-    
-      periods.each do |period|
+
+      while !@since.future?
+        
+        periods(@since).each do |period|
       
-        @reports.each do |r|
+          @reports.each do |r|
           
-          period_name = period[:name]
+            period_name = period[:name]
           
-          next unless r.wants_period?(period_name)
+            next unless r.wants_period?(period_name)
           
-          von = period[:von].strftime("%Y-%m-%d 00:00:00")
-          bis = period[:bis].strftime("%Y-%m-%d 23:59:59")
+            von = period[:von].strftime("%Y-%m-%d 00:00:00")
+            bis = period[:bis].strftime("%Y-%m-%d 23:59:59")
 
-          table_name = r.table_name(period_name)
+            table_name = r.table_name(period_name)
 
-          if debug
-            # drop and create table while in testing mode
-            exec("drop table if exists #{table_name};")
-          end
+            # if debug
+            #   # drop and create table while in testing mode
+            #   exec("drop table if exists #{table_name};")
+            # end
 
-          table_exist   = r.table_exist?(period_name)
-          sql           = r.sql(von, bis, period_name)
-          report_exist  = report_exists?(table_name, von, bis)
+            table_exist   = r.table_exist?(period_name)
+            sql           = r.sql(von, bis, period_name)
+            report_exist  = report_exists?(table_name, von, bis)
         
-          puts "report: #{r.name}_#{period_name}"
-        
-        
-          unless table_exist
-            exec("create table #{table_name} ENGINE=InnoDB default CHARSET=utf8 as #{sql} limit 0;")
-          end
+            puts "report: #{r.table_name(period_name)} exist: #{table_exist}"
         
         
-          if !report_exist || period_name == :today
-            ActiveRecord::Base.transaction do
-              exec("insert into #{report_information_table_name} values ('#{table_name}', '#{von}', '#{bis}', now());") unless report_exist
-          
-              if period_name == :today
-                exec("truncate #{table_name};")
-              end
-            
-              exec("insert into #{table_name} #{sql};")
+            unless table_exist
+              exec("create table #{table_name} ENGINE=InnoDB default CHARSET=utf8 as #{sql} limit 0;")
             end
-          end
+                    
+            if !report_exist || period_name == :today
+              ActiveRecord::Base.transaction do
+                exec("insert into #{report_information_table_name} values ('#{table_name}', '#{von}', '#{bis}', now());") unless report_exist
+            
+                if period_name == :today
+                  exec("truncate #{table_name};")
+                end
+              
+                exec("insert into #{table_name} #{sql};")
+              end
+            end
 
         
+          end
         end
+        
+        @since += 1.day
       end
+      
     end
   
     def exec(sql)

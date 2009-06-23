@@ -1,6 +1,6 @@
 require 'test_helper'
 
-class ReportMeTest < Test::Unit::TestCase
+class ReportmeTest < Test::Unit::TestCase
 
   def setup
     exec("use report_me_test")
@@ -19,7 +19,7 @@ class ReportMeTest < Test::Unit::TestCase
   
   def create_visit_report_factory
     
-    rme = ReportMe::ReportFactory.create do
+    @rme = Reportme::ReportFactory.create do
       report :visits do
         source do |von, bis|
           <<-SQL
@@ -39,8 +39,7 @@ class ReportMeTest < Test::Unit::TestCase
       end
     end
     
-    rme.reset
-    rme
+    @rme
   end
   
   def exec(sql)
@@ -52,6 +51,7 @@ class ReportMeTest < Test::Unit::TestCase
   end
 
   def teardown
+    @rme.reset
     exec("truncate visits;");
   end
 
@@ -78,7 +78,7 @@ class ReportMeTest < Test::Unit::TestCase
     assert_equal 2, one("select cnt from visits_today where channel = 'seo' and datum = curdate()")["cnt"].to_i
     assert_equal 3, one("select cnt from visits_today where channel = 'sem' and datum = curdate()")["cnt"].to_i
   end
-
+  
   should "create visitors in the day report for channel sem and seo" do
     exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 1 day));");
     exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 1 day));");
@@ -90,7 +90,7 @@ class ReportMeTest < Test::Unit::TestCase
     assert_equal 3, one("select cnt from visits_day where channel = 'sem' and datum = date_sub(curdate(), interval 1 day)")["cnt"].to_i
   end
   
-  should "handle today and day periods but nothing else" do
-  end
+  # should "handle today and day periods but nothing else" do
+  # end
   
 end

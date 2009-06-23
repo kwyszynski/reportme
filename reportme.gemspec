@@ -21,7 +21,7 @@ Gem::Specification.new do |s|
      "lib/reportme.rb",
      "lib/reportme/report.rb",
      "lib/reportme/report_factory.rb",
-     "test/report_me_test.rb",
+     "test/reportme_test.rb",
      "test/test_helper.rb"
   ]
   s.homepage = %q{http://github.com/jzimmek/reportme/tree/master}
@@ -30,7 +30,7 @@ Gem::Specification.new do |s|
   s.rubygems_version = %q{1.3.4}
   s.summary = %q{Ruby wrapper to automate sql reports}
   s.test_files = [
-    "test/report_me_test.rb",
+    "test/reportme_test.rb",
      "test/test_helper.rb"
   ]
 
