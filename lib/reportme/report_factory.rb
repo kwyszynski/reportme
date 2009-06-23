@@ -29,12 +29,14 @@ module Reportme
           when :day
             [today - 1.day, today - 1.day]
           when :week
-            [today - 1.day - 1.week, today - 1.day]
+            # [today - 1.day - 1.week, today - 1.day]
+            [today - 1.week, today - 1.day]
           when :calendar_week
             n = today - 1.day
             [n - n.cwday + 1, n - n.cwday + 7]
           when :month
-            [today - 1.day - 1.month, today - 1.day]
+            # [today - 1.day - 1.month, today - 1.day]
+            [today - 1.month, today - 1.day]
           when :calendar_month
             n = today - 1.month
             [n.beginning_of_month, n.end_of_month]
@@ -68,7 +70,39 @@ module Reportme
         end
       end
     end
-  
+
+    def week_data_present?(report, von, bis)
+      puts "von: #{von} ... bis: #{bis}"
+    end
+
+    def days(von, bis)
+      
+      von = von.to_date
+      bis = bis.to_date
+      
+      raise "bis: #{bis} vor von: #{von}" if bis < von
+      
+      days = 0
+      
+      while von < bis
+        von += 1.day
+        days += 1
+      end
+      
+      days
+    end
+
+    def ensure_report_table_exist(report, period)
+
+      unless report.table_exist?(period)
+        table_name  = report.table_name(period)
+        sql         = report.sql('0000-00-00 00:00:00', '0000-00-00 00:00:00', period)
+
+        exec("create table #{table_name} ENGINE=InnoDB default CHARSET=utf8 as #{sql} limit 0;")
+      end
+      
+    end
+
     def run
     
       unless report_information_table_name_exist?
@@ -96,10 +130,31 @@ module Reportme
             period_name = period[:name]
           
             next unless r.wants_period?(period_name)
-          
-            von = period[:von].strftime("%Y-%m-%d 00:00:00")
-            bis = period[:bis].strftime("%Y-%m-%d 23:59:59")
 
+            _von = period[:von]
+            _bis = period[:bis]
+
+            von = _von.strftime("%Y-%m-%d 00:00:00")
+            bis = _bis.strftime("%Y-%m-%d 23:59:59")
+
+            # if period_name == :week
+            # 
+            #   existing = select_value(<<-SQL
+            #     select
+            #       count(1) cnt
+            #     from
+            #       #{report_information_table_name}
+            #     where
+            #       report = '#{r.table_name(:day)}'
+            #       and von between '#{von}' and '#{(_von + 6.days).strftime("%Y-%m-%d 23:59:59")}'
+            #   SQL
+            #   )
+            #   
+            #   puts "**** #{existing}"
+            #   
+            # end
+
+            
             table_name = r.table_name(period_name)
 
             table_exist   = r.table_exist?(period_name)
@@ -107,12 +162,9 @@ module Reportme
             report_exist  = report_exists?(table_name, von, bis)
         
             puts "report: #{r.table_name(period_name)} exist: #{table_exist}"
+
+            ensure_report_table_exist(r, period_name)
         
-        
-            unless table_exist
-              exec("create table #{table_name} ENGINE=InnoDB default CHARSET=utf8 as #{sql} limit 0;")
-            end
-                    
             if !report_exist || period_name == :today
               ActiveRecord::Base.transaction do
                 exec("insert into #{report_information_table_name} values ('#{table_name}', '#{von}', '#{bis}', now());") unless report_exist
