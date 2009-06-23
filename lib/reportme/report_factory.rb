@@ -49,11 +49,11 @@ module Reportme
     end
   
     def report_information_table_name_exist?
-      ActiveRecord::Base.connection.select_value("show tables like '#{report_information_table_name}'") != nil
+      select_value("show tables like '#{report_information_table_name}'") != nil
     end
 
     def report_exists?(name, von, bis)
-      ActiveRecord::Base.connection.select_value("select 1 from #{report_information_table_name} where report = '#{name}' and von = '#{von}' and bis = '#{bis}'") != nil
+      select_value("select 1 from #{report_information_table_name} where report = '#{name}' and von = '#{von}' and bis = '#{bis}'") != nil
     end
     
     def reset
@@ -111,26 +111,25 @@ module Reportme
           sql           = r.sql(von, bis)
           report_exist  = report_exists?(table_name, von, bis)
         
-          puts "report: #{r.name}_#{period[:name]} :: #{report_exist}"
+          puts "report: #{r.name}_#{period[:name]}"
         
         
           unless table_exist
             exec("create table #{table_name} ENGINE=InnoDB default CHARSET=utf8 as #{sql} limit 0;")
           end
         
-          puts sql
         
-          # if !report_exist || period[:name] == :today
-          #   ActiveRecord::Base.transaction do
-          #     exec("insert into #{report_information_table_name} values ('#{table_name}', '#{von}', '#{bis}', now());") unless report_exist
-          # 
-          #     if period[:name] == :today
-          #       exec("truncate #{table_name};")
-          #     end
-          #   
-          #     exec("insert into #{table_name} #{sql};")
-          #   end
-          # end
+          if !report_exist || period[:name] == :today
+            ActiveRecord::Base.transaction do
+              exec("insert into #{report_information_table_name} values ('#{table_name}', '#{von}', '#{bis}', now());") unless report_exist
+          
+              if period[:name] == :today
+                exec("truncate #{table_name};")
+              end
+            
+              exec("insert into #{table_name} #{sql};")
+            end
+          end
 
         
         end
@@ -138,10 +137,23 @@ module Reportme
     end
   
     def exec(sql)
+      puts "// ------------------------"
+      puts "exec: #{sql}"
+      puts "------------------------ //"
       ActiveRecord::Base.connection.execute(sql)
+    end
+    
+    def select_value(sql)
+      puts "// ------------------------"
+      puts "select_value: #{sql}"
+      puts "------------------------ //"
+      ActiveRecord::Base.connection.select_value(sql)
     end
   
     def report(name, &block)
+      
+      name = name.to_sym
+      
       r = Report.new(name)
       r.instance_eval(&block)
     
