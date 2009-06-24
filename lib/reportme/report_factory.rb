@@ -17,6 +17,7 @@ module Reportme
       @reports = []
       @since = since.to_date
       @subscribtions = {}
+      @report_exists_cache = []
     end
     
     def connect
@@ -71,7 +72,15 @@ module Reportme
     end
 
     def report_exists?(name, von, bis)
-      select_value("select 1 from #{report_information_table_name} where report = '#{name}' and von = '#{von}' and bis = '#{bis}'") != nil
+      key = "#{name}__#{von}__#{bis}"
+
+      return true if @report_exists_cache.include?(key)
+      
+      exists = select_value("select 1 from #{report_information_table_name} where report = '#{name}' and von = '#{von}' and bis = '#{bis}'") != nil
+      
+      @report_exists_cache << key if exists
+      
+      exists
     end
     
     def schema_name
@@ -95,6 +104,7 @@ module Reportme
     end
     
     def reset
+      @report_exists_cache.clear
       exec("drop table if exists #{report_information_table_name};")
       
       ReportFactory.periods.each do |period|
