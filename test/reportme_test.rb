@@ -25,7 +25,8 @@ class ReportmeTest < Test::Unit::TestCase
         source do |von, bis|
           <<-SQL
           select
-            date('#{von}') as datum,
+            '#{von}' as von,
+            date(created_at) as datum,
             channel,
             count(1) as cnt
           from
@@ -39,7 +40,6 @@ class ReportmeTest < Test::Unit::TestCase
         end
       end
     end
-    
     @rme
   end
   
@@ -52,8 +52,10 @@ class ReportmeTest < Test::Unit::TestCase
   end
 
   def teardown
-    @rme.reset
-    exec("truncate visits;");
+    unless @debug
+      @rme.reset if @rme
+      exec("truncate visits;");
+    end
   end
 
   should "create one visitor in the today report for channel sem" do
@@ -91,9 +93,25 @@ class ReportmeTest < Test::Unit::TestCase
     assert_equal 3, one("select cnt from visits_day where channel = 'sem' and datum = date_sub(curdate(), interval 1 day)")["cnt"].to_i
   end
   
-  # should "report a week as 7 days since yesterday" do
-  #   
-  # end
+  should "report a week as 7 days since yesterday ignoring days before or after this" do
+
+    # today should be ignored
+    exec("insert into visits values (null, 'sem', curdate());");
+
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 1 day));");
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 2 day));");
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 3 day));");
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 4 day));");
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 5 day));");
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 6 day));");
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 7 day));");
+    
+    # 8 days ago should be ignored
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 8 day));");
+    
+    create_visit_report_factory([:week]).run
+    assert_equal 7, one("select count(1) as cnt from visits_week where channel = 'sem' and von = date_sub(curdate(), interval 7 day)")["cnt"].to_i
+  end
   
   # should "handle today and day periods but nothing else" do
   # end
