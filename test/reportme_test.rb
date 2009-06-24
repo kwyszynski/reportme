@@ -17,11 +17,18 @@ class ReportmeTest < Test::Unit::TestCase
     SQL
   end
   
-  def create_visit_report_factory(wanted_periods=nil)
+  def create_visit_report_factory(opts={})
     
-    @rme = Reportme::ReportFactory.create do
+    defaults = {
+      :periods => [],
+      :since => DateTime.now
+    }
+    
+    opts = defaults.merge(opts)
+    
+    @rme = Reportme::ReportFactory.create opts[:since] do
       report :visits do
-        periods(wanted_periods)
+        periods opts[:periods]
         source do |von, bis|
           <<-SQL
           select
@@ -88,16 +95,16 @@ class ReportmeTest < Test::Unit::TestCase
     exec("insert into visits values (null, 'seo', date_sub(curdate(), interval 1 day));");
     exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 1 day));");
     exec("insert into visits values (null, 'seo', date_sub(curdate(), interval 1 day));");
-    create_visit_report_factory([:today, :day]).run
+    create_visit_report_factory(:periods => [:today, :day]).run
     assert_equal 2, one("select cnt from visits_day where channel = 'seo' and datum = date_sub(curdate(), interval 1 day)")["cnt"].to_i
     assert_equal 3, one("select cnt from visits_day where channel = 'sem' and datum = date_sub(curdate(), interval 1 day)")["cnt"].to_i
   end
   
   should "report a week as 7 days since yesterday ignoring days before or after this" do
-
+  
     # today should be ignored
     exec("insert into visits values (null, 'sem', curdate());");
-
+  
     exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 1 day));");
     exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 2 day));");
     exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 3 day));");
@@ -109,8 +116,52 @@ class ReportmeTest < Test::Unit::TestCase
     # 8 days ago should be ignored
     exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 8 day));");
     
-    create_visit_report_factory([:week]).run
+    create_visit_report_factory(:periods => [:week]).run
     assert_equal 7, one("select count(1) as cnt from visits_week where channel = 'sem' and von = date_sub(curdate(), interval 7 day)")["cnt"].to_i
+  end
+  
+  should "create a daily report for the previous 3 days" do
+  
+    #should be ignored
+    exec("insert into visits values (null, 'sem', curdate());");
+  
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 1 day));");
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 2 day));");
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 3 day));");
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 4 day));");
+  
+    # should be ignored
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 5 day));");
+  
+    create_visit_report_factory(:since => 3.days.ago,:periods => [:day]).run
+    assert_equal 4, one("select count(1) as cnt from visits_day where von between date_sub(curdate(), interval 4 day) and date_sub(curdate(), interval 1 day)")["cnt"].to_i
+  end
+  
+  should "create the weekly report by using 7 daily reports" do
+    
+    # should be ignored in weekly
+    exec("insert into visits values (null, 'sem', curdate());");
+  
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 1 day));");
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 2 day));");
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 3 day));");
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 4 day));");
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 5 day));");
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 6 day));");
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 7 day));");
+    
+    # should be ignored in weekly
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 8 day));");
+    # should be ignored in weekly
+    exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 9 day));");
+
+    create_visit_report_factory(:since => 10.days.ago,:periods => [:day]).run
+    
+    exec("truncate visits;")
+
+    create_visit_report_factory(:periods => [:week]).run
+
+    assert_equal 7, one("select count(1) as cnt from visits_week where von between date_sub(curdate(), interval 7 day) and date_sub(curdate(), interval 1 day)")["cnt"].to_i
   end
   
   # should "handle today and day periods but nothing else" do
