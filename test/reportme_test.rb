@@ -27,6 +27,9 @@ class ReportmeTest < Test::Unit::TestCase
     opts = defaults.merge(opts)
     
     @rme = Reportme::ReportFactory.create opts[:since] do
+      
+      connection :adapter => "mysql", :database => "report_me_test", :username => "root", :password => "root", :host => "localhost", :port => 3306
+      
       report :visits do
         periods opts[:periods]
         source do |von, bis|
@@ -155,17 +158,17 @@ class ReportmeTest < Test::Unit::TestCase
     # should be ignored in weekly
     exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 9 day));");
   
-    create_visit_report_factory(:since => 10.days.ago,:periods => [:day]).run
+    create_visit_report_factory(:since => 10.days.ago, :periods => [:day]).run
     
     exec("truncate visits;")
   
     create_visit_report_factory(:periods => [:week]).run
   
-    assert_equal 7, one("select count(1) as cnt from visits_week where von between date_sub(curdate(), interval 7 day) and date_sub(curdate(), interval 1 day)")["cnt"].to_i
+    assert_equal 7, one("select count(1) as cnt from visits_week where date(von) between date_sub(curdate(), interval 7 day) and date_sub(curdate(), interval 1 day)")["cnt"].to_i
   end
   
   should "generate the von/bis range for the periods" do
-
+  
     ##
     # anfang monat - 30 tage
     ##
@@ -184,10 +187,10 @@ class ReportmeTest < Test::Unit::TestCase
     
     assert_equal '2009-05-25 00:00:00'.to_datetime, periods[:calendar_week][:von]
     assert_equal '2009-05-31 23:59:59'.to_datetime, periods[:calendar_week][:bis]
-
+  
     assert_equal '2009-05-01 00:00:00'.to_datetime, periods[:month][:von]
     assert_equal '2009-05-31 23:59:59'.to_datetime, periods[:month][:bis]
-
+  
     assert_equal '2009-05-01 00:00:00'.to_datetime, periods[:calendar_month][:von]
     assert_equal '2009-05-31 23:59:59'.to_datetime, periods[:calendar_month][:bis]
     
@@ -210,13 +213,13 @@ class ReportmeTest < Test::Unit::TestCase
     
     assert_equal '2009-06-15 00:00:00'.to_datetime, periods[:calendar_week][:von]
     assert_equal '2009-06-21 23:59:59'.to_datetime, periods[:calendar_week][:bis]
-
+  
     assert_equal '2009-05-24 00:00:00'.to_datetime, periods[:month][:von]
     assert_equal '2009-06-23 23:59:59'.to_datetime, periods[:month][:bis]
-
+  
     assert_equal '2009-05-01 00:00:00'.to_datetime, periods[:calendar_month][:von]
     assert_equal '2009-05-31 23:59:59'.to_datetime, periods[:calendar_month][:bis]
-
+  
     ##
     # ende monat - 30 tage
     ##
@@ -235,13 +238,13 @@ class ReportmeTest < Test::Unit::TestCase
     
     assert_equal '2009-06-22 00:00:00'.to_datetime, periods[:calendar_week][:von]
     assert_equal '2009-06-28 23:59:59'.to_datetime, periods[:calendar_week][:bis]
-
+  
     assert_equal '2009-05-30 00:00:00'.to_datetime, periods[:month][:von]
     assert_equal '2009-06-29 23:59:59'.to_datetime, periods[:month][:bis]
-
+  
     assert_equal '2009-05-01 00:00:00'.to_datetime, periods[:calendar_month][:von]
     assert_equal '2009-05-31 23:59:59'.to_datetime, periods[:calendar_month][:bis]
-
+  
     ##
     # anfang monat - 31 tage
     ##
@@ -260,13 +263,13 @@ class ReportmeTest < Test::Unit::TestCase
     
     assert_equal '2009-04-20 00:00:00'.to_datetime, periods[:calendar_week][:von]
     assert_equal '2009-04-26 23:59:59'.to_datetime, periods[:calendar_week][:bis]
-
+  
     assert_equal '2009-03-31 00:00:00'.to_datetime, periods[:month][:von]
     assert_equal '2009-04-30 23:59:59'.to_datetime, periods[:month][:bis]
-
+  
     assert_equal '2009-04-01 00:00:00'.to_datetime, periods[:calendar_month][:von]
     assert_equal '2009-04-30 23:59:59'.to_datetime, periods[:calendar_month][:bis]
-
+  
     ##
     # mitte monat - 31 tage
     ##
@@ -285,13 +288,13 @@ class ReportmeTest < Test::Unit::TestCase
     
     assert_equal '2009-05-04 00:00:00'.to_datetime, periods[:calendar_week][:von]
     assert_equal '2009-05-10 23:59:59'.to_datetime, periods[:calendar_week][:bis]
-
+  
     assert_equal '2009-04-14 00:00:00'.to_datetime, periods[:month][:von]
     assert_equal '2009-05-14 23:59:59'.to_datetime, periods[:month][:bis]
-
+  
     assert_equal '2009-04-01 00:00:00'.to_datetime, periods[:calendar_month][:von]
     assert_equal '2009-04-30 23:59:59'.to_datetime, periods[:calendar_month][:bis]
-
+  
     ##
     # ende monat - 31 tage
     ##
@@ -310,14 +313,45 @@ class ReportmeTest < Test::Unit::TestCase
     
     assert_equal '2009-05-18 00:00:00'.to_datetime, periods[:calendar_week][:von]
     assert_equal '2009-05-24 23:59:59'.to_datetime, periods[:calendar_week][:bis]
-
+  
     assert_equal '2009-04-30 00:00:00'.to_datetime, periods[:month][:von]
     assert_equal '2009-05-30 23:59:59'.to_datetime, periods[:month][:bis]
-
+  
     assert_equal '2009-04-01 00:00:00'.to_datetime, periods[:calendar_month][:von]
     assert_equal '2009-04-30 23:59:59'.to_datetime, periods[:calendar_month][:bis]
-
+  
     
   end
+
+  should "create the calendar_weekly report by using 7 daily reports" do
+    
+    today = '2009-06-24'
+    
+    # should be ignored in weekly
+    exec("insert into visits values (null, 'sem', '#{today}');");
+    # should be ignored in weekly
+    exec("insert into visits values (null, 'sem', date_sub('#{today}', interval 1 day));");
+    # should be ignored in weekly
+    exec("insert into visits values (null, 'sem', date_sub('#{today}', interval 2 day));");
+    exec("insert into visits values (null, 'sem', date_sub('#{today}', interval 3 day));");
+    exec("insert into visits values (null, 'sem', date_sub('#{today}', interval 4 day));");
+    exec("insert into visits values (null, 'sem', date_sub('#{today}', interval 5 day));");
+    exec("insert into visits values (null, 'sem', date_sub('#{today}', interval 6 day));");
+    exec("insert into visits values (null, 'sem', date_sub('#{today}', interval 7 day));");
+    exec("insert into visits values (null, 'sem', date_sub('#{today}', interval 8 day));");
+    exec("insert into visits values (null, 'sem', date_sub('#{today}', interval 9 day));");
+    # should be ignored in weekly
+    exec("insert into visits values (null, 'sem', date_sub('#{today}', interval 10 day));");
+
+    create_visit_report_factory(:since => 15.days.ago, :periods => [:day]).run
+
+    exec("truncate visits;")
+  
+    create_visit_report_factory(:periods => [:calendar_week]).run
+  
+    assert_equal 7, one("select count(1) as cnt from visits_calendar_week where von between '2009-06-15 00:00:00' and '2009-06-21 00:00:00'")["cnt"].to_i
+    
+  end
+
     
 end

@@ -6,6 +6,7 @@ module Reportme
     def self.create(since=Date.today, &block)
       rme = ReportFactory.new(since)
       rme.instance_eval(&block)
+      rme.connect
       rme.run
       rme
     end
@@ -15,6 +16,15 @@ module Reportme
       
       @reports = []
       @since = since.to_date
+    end
+    
+    def connect
+      puts "connection: #{@properties}"
+      ActiveRecord::Base.establish_connection(@properties)
+    end
+    
+    def connection(properties)
+      @properties = properties
     end
   
     def self.periods(today = Date.today)
@@ -63,6 +73,26 @@ module Reportme
       select_value("select 1 from #{report_information_table_name} where report = '#{name}' and von = '#{von}' and bis = '#{bis}'") != nil
     end
     
+    def schema_name
+      schema = @properties[:database]
+      raise "missing :database in connection properties" unless schema
+      schema
+    end
+    
+    def columns(table_name)
+      sql = <<-SQL
+      select
+        column_name
+      from
+        information_schema.columns
+      where
+        table_schema = '#{schema_name}'
+        and table_name = '#{table_name}'
+      ;
+      SQL
+      select_values(sql)
+    end
+    
     def reset
       exec("drop table if exists #{report_information_table_name};")
       
@@ -104,12 +134,11 @@ module Reportme
       end
     end
     
-    def try_weekly_report_by_daily_reports(report, _von, _bis)
-
-      table_name = report.table_name(:week)
+    def try_report_by_daily_reports(report, period_name, _von, num_days, num_days_required)
+      table_name = report.table_name(period_name)
 
       von = _von.strftime("%Y-%m-%d 00:00:00")
-      bis = _bis.strftime("%Y-%m-%d 23:59:59")
+      bis = (_von + num_days.days).strftime("%Y-%m-%d 23:59:59")
       
       existing_daily_reports = select_value(<<-SQL
         select
@@ -118,20 +147,24 @@ module Reportme
           #{report_information_table_name}
         where
           report = '#{report.table_name(:day)}'
-          and von between '#{von}' and '#{(_von + 6.days).strftime("%Y-%m-%d 23:59:59")}'
+          and von between '#{von}' and '#{(_von + num_days.days).strftime("%Y-%m-%d 00:00:00")}'
       SQL
       ).to_i
       
-      puts "weekly report depends on 7 daily reports ... #{existing_daily_reports} daily found"
+      puts "#{period_name}ly report depends on #{num_days_required} daily reports ... #{existing_daily_reports} daily found"
       
-      if existing_daily_reports == 7
+      if existing_daily_reports == num_days_required
+        
+        column_names = ["'#{von}' as von"]
+        column_names += columns(table_name).find_all{|c|c != "von"}.collect{|c|"d.#{c} as #{c}"}
+
         ActiveRecord::Base.transaction do
           exec("insert into #{report_information_table_name} values ('#{table_name}', '#{von}', '#{bis}', now());")
-          exec("insert into #{table_name} select * from #{report.table_name(:day)} where von between '#{von}' and '#{(_von + 6.days).strftime("%Y-%m-%d 00:00:00")}';")
+          exec("insert into #{table_name} select #{column_names.join(',')} from #{report.table_name(:day)} as d where d.von between '#{von}' and '#{(_von + num_days.days).strftime("%Y-%m-%d 00:00:00")}';")
         end
       end
     end
-
+    
     def run
     
       ensure_report_informations_table_exist
@@ -157,13 +190,19 @@ module Reportme
             table_exist   = r.table_exist?(period_name)
             sql           = r.sql(von, bis, period_name)
         
-            puts "report: #{r.table_name(period_name)} exist: #{table_exist}"
+            puts "report: #{r.table_name(period_name)} von: #{von}, bis: #{bis}"
 
             ensure_report_table_exist(r, period_name)
             
             report_exists = report_exists?(table_name, von, bis)
             
-            try_weekly_report_by_daily_reports(r, _von, _bis) if period_name == :week && !report_exists
+            try_report_by_daily_reports(r, :week, _von, 6, 7)                                     if period_name == :week && !report_exists
+            try_report_by_daily_reports(r, :calendar_week, _von, 6, 7)                            if period_name == :calendar_week && !report_exists
+            
+            # TODO: implement monat by daily reports
+            # try_report_by_daily_reports(r, :month, _von, 29 + (_von.end_of_month.day == 31 ? 1 : 0), 30)  if period_name == :month && !report_exists
+            
+            try_report_by_daily_reports(r, :calendar_month, _von, _bis.day - _von.day, _bis.day)  if period_name == :calendar_month && !report_exists
 
             report_exists = report_exists?(table_name, von, bis)
             
@@ -200,6 +239,13 @@ module Reportme
       puts "select_value: #{sql}"
       puts "------------------------ //"
       ActiveRecord::Base.connection.select_value(sql)
+    end
+
+    def select_values(sql)
+      puts "// ------------------------"
+      puts "select_values: #{sql}"
+      puts "------------------------ //"
+      ActiveRecord::Base.connection.select_values(sql)
     end
   
     def report(name, &block)
