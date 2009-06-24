@@ -104,10 +104,6 @@ module Reportme
       end
     end
 
-    def week_data_present?(report, von, bis)
-      puts "von: #{von} ... bis: #{bis}"
-    end
-
     def ensure_report_table_exist(report, period)
       unless report.table_exist?(period)
         table_name  = report.table_name(period)
