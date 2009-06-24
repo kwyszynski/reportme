@@ -64,7 +64,7 @@ class ReportmeTest < Test::Unit::TestCase
       exec("truncate visits;");
     end
   end
-
+  
   should "create one visitor in the today report for channel sem" do
     exec("insert into visits values (null, 'sem', now())");
     create_visit_report_factory.run
@@ -154,17 +154,170 @@ class ReportmeTest < Test::Unit::TestCase
     exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 8 day));");
     # should be ignored in weekly
     exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 9 day));");
-
+  
     create_visit_report_factory(:since => 10.days.ago,:periods => [:day]).run
     
     exec("truncate visits;")
-
+  
     create_visit_report_factory(:periods => [:week]).run
-
+  
     assert_equal 7, one("select count(1) as cnt from visits_week where von between date_sub(curdate(), interval 7 day) and date_sub(curdate(), interval 1 day)")["cnt"].to_i
   end
   
-  # should "handle today and day periods but nothing else" do
-  # end
-  
+  should "generate the von/bis range for the periods" do
+
+    ##
+    # anfang monat - 30 tage
+    ##
+    
+    periods = {}
+    Reportme::ReportFactory.periods('2009-06-01'.to_date).each{|p| periods[p[:name]] = p}
+    
+    assert_equal '2009-06-01 00:00:00'.to_datetime, periods[:today][:von]
+    assert_equal '2009-06-01 23:59:59'.to_datetime, periods[:today][:bis]
+    
+    assert_equal '2009-05-31 00:00:00'.to_datetime, periods[:day][:von]
+    assert_equal '2009-05-31 23:59:59'.to_datetime, periods[:day][:bis]
+    
+    assert_equal '2009-05-25 00:00:00'.to_datetime, periods[:week][:von]
+    assert_equal '2009-05-31 23:59:59'.to_datetime, periods[:week][:bis]
+    
+    assert_equal '2009-05-25 00:00:00'.to_datetime, periods[:calendar_week][:von]
+    assert_equal '2009-05-31 23:59:59'.to_datetime, periods[:calendar_week][:bis]
+
+    assert_equal '2009-05-01 00:00:00'.to_datetime, periods[:month][:von]
+    assert_equal '2009-05-31 23:59:59'.to_datetime, periods[:month][:bis]
+
+    assert_equal '2009-05-01 00:00:00'.to_datetime, periods[:calendar_month][:von]
+    assert_equal '2009-05-31 23:59:59'.to_datetime, periods[:calendar_month][:bis]
+    
+    
+    ##
+    # mitten monat - 30 tage
+    ##
+    
+    periods.clear
+    Reportme::ReportFactory.periods('2009-06-24'.to_date).each{|p| periods[p[:name]] = p}
+    
+    assert_equal '2009-06-24 00:00:00'.to_datetime, periods[:today][:von]
+    assert_equal '2009-06-24 23:59:59'.to_datetime, periods[:today][:bis]
+    
+    assert_equal '2009-06-23 00:00:00'.to_datetime, periods[:day][:von]
+    assert_equal '2009-06-23 23:59:59'.to_datetime, periods[:day][:bis]
+    
+    assert_equal '2009-06-17 00:00:00'.to_datetime, periods[:week][:von]
+    assert_equal '2009-06-23 23:59:59'.to_datetime, periods[:week][:bis]
+    
+    assert_equal '2009-06-15 00:00:00'.to_datetime, periods[:calendar_week][:von]
+    assert_equal '2009-06-21 23:59:59'.to_datetime, periods[:calendar_week][:bis]
+
+    assert_equal '2009-05-24 00:00:00'.to_datetime, periods[:month][:von]
+    assert_equal '2009-06-23 23:59:59'.to_datetime, periods[:month][:bis]
+
+    assert_equal '2009-05-01 00:00:00'.to_datetime, periods[:calendar_month][:von]
+    assert_equal '2009-05-31 23:59:59'.to_datetime, periods[:calendar_month][:bis]
+
+    ##
+    # ende monat - 30 tage
+    ##
+    
+    periods.clear
+    Reportme::ReportFactory.periods('2009-06-30'.to_date).each{|p| periods[p[:name]] = p}
+    
+    assert_equal '2009-06-30 00:00:00'.to_datetime, periods[:today][:von]
+    assert_equal '2009-06-30 23:59:59'.to_datetime, periods[:today][:bis]
+    
+    assert_equal '2009-06-29 00:00:00'.to_datetime, periods[:day][:von]
+    assert_equal '2009-06-29 23:59:59'.to_datetime, periods[:day][:bis]
+    
+    assert_equal '2009-06-23 00:00:00'.to_datetime, periods[:week][:von]
+    assert_equal '2009-06-29 23:59:59'.to_datetime, periods[:week][:bis]
+    
+    assert_equal '2009-06-22 00:00:00'.to_datetime, periods[:calendar_week][:von]
+    assert_equal '2009-06-28 23:59:59'.to_datetime, periods[:calendar_week][:bis]
+
+    assert_equal '2009-05-30 00:00:00'.to_datetime, periods[:month][:von]
+    assert_equal '2009-06-29 23:59:59'.to_datetime, periods[:month][:bis]
+
+    assert_equal '2009-05-01 00:00:00'.to_datetime, periods[:calendar_month][:von]
+    assert_equal '2009-05-31 23:59:59'.to_datetime, periods[:calendar_month][:bis]
+
+    ##
+    # anfang monat - 31 tage
+    ##
+    
+    periods.clear
+    Reportme::ReportFactory.periods('2009-05-01'.to_date).each{|p| periods[p[:name]] = p}
+    
+    assert_equal '2009-05-01 00:00:00'.to_datetime, periods[:today][:von]
+    assert_equal '2009-05-01 23:59:59'.to_datetime, periods[:today][:bis]
+    
+    assert_equal '2009-04-30 00:00:00'.to_datetime, periods[:day][:von]
+    assert_equal '2009-04-30 23:59:59'.to_datetime, periods[:day][:bis]
+    
+    assert_equal '2009-04-24 00:00:00'.to_datetime, periods[:week][:von]
+    assert_equal '2009-04-30 23:59:59'.to_datetime, periods[:week][:bis]
+    
+    assert_equal '2009-04-20 00:00:00'.to_datetime, periods[:calendar_week][:von]
+    assert_equal '2009-04-26 23:59:59'.to_datetime, periods[:calendar_week][:bis]
+
+    assert_equal '2009-03-31 00:00:00'.to_datetime, periods[:month][:von]
+    assert_equal '2009-04-30 23:59:59'.to_datetime, periods[:month][:bis]
+
+    assert_equal '2009-04-01 00:00:00'.to_datetime, periods[:calendar_month][:von]
+    assert_equal '2009-04-30 23:59:59'.to_datetime, periods[:calendar_month][:bis]
+
+    ##
+    # mitte monat - 31 tage
+    ##
+    
+    periods.clear
+    Reportme::ReportFactory.periods('2009-05-15'.to_date).each{|p| periods[p[:name]] = p}
+    
+    assert_equal '2009-05-15 00:00:00'.to_datetime, periods[:today][:von]
+    assert_equal '2009-05-15 23:59:59'.to_datetime, periods[:today][:bis]
+    
+    assert_equal '2009-05-14 00:00:00'.to_datetime, periods[:day][:von]
+    assert_equal '2009-05-14 23:59:59'.to_datetime, periods[:day][:bis]
+    
+    assert_equal '2009-05-08 00:00:00'.to_datetime, periods[:week][:von]
+    assert_equal '2009-05-14 23:59:59'.to_datetime, periods[:week][:bis]
+    
+    assert_equal '2009-05-04 00:00:00'.to_datetime, periods[:calendar_week][:von]
+    assert_equal '2009-05-10 23:59:59'.to_datetime, periods[:calendar_week][:bis]
+
+    assert_equal '2009-04-14 00:00:00'.to_datetime, periods[:month][:von]
+    assert_equal '2009-05-14 23:59:59'.to_datetime, periods[:month][:bis]
+
+    assert_equal '2009-04-01 00:00:00'.to_datetime, periods[:calendar_month][:von]
+    assert_equal '2009-04-30 23:59:59'.to_datetime, periods[:calendar_month][:bis]
+
+    ##
+    # ende monat - 31 tage
+    ##
+    
+    periods.clear
+    Reportme::ReportFactory.periods('2009-05-31'.to_date).each{|p| periods[p[:name]] = p}
+    
+    assert_equal '2009-05-31 00:00:00'.to_datetime, periods[:today][:von]
+    assert_equal '2009-05-31 23:59:59'.to_datetime, periods[:today][:bis]
+    
+    assert_equal '2009-05-30 00:00:00'.to_datetime, periods[:day][:von]
+    assert_equal '2009-05-30 23:59:59'.to_datetime, periods[:day][:bis]
+    
+    assert_equal '2009-05-24 00:00:00'.to_datetime, periods[:week][:von]
+    assert_equal '2009-05-30 23:59:59'.to_datetime, periods[:week][:bis]
+    
+    assert_equal '2009-05-18 00:00:00'.to_datetime, periods[:calendar_week][:von]
+    assert_equal '2009-05-24 23:59:59'.to_datetime, periods[:calendar_week][:bis]
+
+    assert_equal '2009-04-30 00:00:00'.to_datetime, periods[:month][:von]
+    assert_equal '2009-05-30 23:59:59'.to_datetime, periods[:month][:bis]
+
+    assert_equal '2009-04-01 00:00:00'.to_datetime, periods[:calendar_month][:von]
+    assert_equal '2009-04-30 23:59:59'.to_datetime, periods[:calendar_month][:bis]
+
+    
+  end
+    
 end

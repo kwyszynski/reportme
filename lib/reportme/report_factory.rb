@@ -17,9 +17,9 @@ module Reportme
       @since = since.to_date
     end
   
-    def periods(today = Date.today)
+    def self.periods(today = Date.today)
 
-      periods = []
+      r = []
 
       [:today, :day, :week, :calendar_week, :month, :calendar_month].each do |period|
       
@@ -29,24 +29,26 @@ module Reportme
           when :day
             [today - 1.day, today - 1.day]
           when :week
-            # [today - 1.day - 1.week, today - 1.day]
             [today - 1.week, today - 1.day]
           when :calendar_week
-            n = today - 1.day
-            [n - n.cwday + 1, n - n.cwday + 7]
+            day_lastweek = today.to_date - 7.days
+            monday = day_lastweek - (day_lastweek.cwday - 1).days
+            [monday, monday + 6.days]
           when :month
-            # [today - 1.day - 1.month, today - 1.day]
-            [today - 1.month, today - 1.day]
+            [today - 1.day - 30.days, today - 1.day]
           when :calendar_month
             n = today - 1.month
             [n.beginning_of_month, n.end_of_month]
         end
       
-        periods << {:name => period, :von => von, :bis => bis}
+        von = von.to_datetime
+        bis = bis.to_datetime + 23.hours + 59.minutes + 59.seconds
+      
+        r << {:name => period, :von => von, :bis => bis}
 
       end
     
-      periods
+      r
     end
   
     def report_information_table_name
@@ -64,7 +66,7 @@ module Reportme
     def reset
       exec("drop table if exists #{report_information_table_name};")
       
-      periods.each do |period|
+      ReportFactory.periods.each do |period|
         @reports.each do |r|
           exec("drop table if exists #{r.table_name(period[:name])};")
         end
@@ -136,7 +138,7 @@ module Reportme
     
       while !@since.future?
         
-        periods(@since).each do |period|
+        ReportFactory.periods(@since).each do |period|
       
           @reports.each do |r|
           
