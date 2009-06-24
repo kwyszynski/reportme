@@ -17,10 +17,11 @@ class ReportmeTest < Test::Unit::TestCase
     SQL
   end
   
-  def create_visit_report_factory
+  def create_visit_report_factory(wanted_periods=nil)
     
     @rme = Reportme::ReportFactory.create do
       report :visits do
+        periods(wanted_periods)
         source do |von, bis|
           <<-SQL
           select
@@ -85,10 +86,14 @@ class ReportmeTest < Test::Unit::TestCase
     exec("insert into visits values (null, 'seo', date_sub(curdate(), interval 1 day));");
     exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 1 day));");
     exec("insert into visits values (null, 'seo', date_sub(curdate(), interval 1 day));");
-    create_visit_report_factory.run
+    create_visit_report_factory([:today, :day]).run
     assert_equal 2, one("select cnt from visits_day where channel = 'seo' and datum = date_sub(curdate(), interval 1 day)")["cnt"].to_i
     assert_equal 3, one("select cnt from visits_day where channel = 'sem' and datum = date_sub(curdate(), interval 1 day)")["cnt"].to_i
   end
+  
+  # should "report a week as 7 days since yesterday" do
+  #   
+  # end
   
   # should "handle today and day periods but nothing else" do
   # end

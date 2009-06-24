@@ -12,10 +12,10 @@ module Reportme
       @source = block
     end
     
-    def periods(*args)
-      unless args.blank?
+    def periods(wanted_periods=[])
+      unless wanted_periods.blank?
         @periods.clear
-        args.each do |period|
+        wanted_periods.each do |period|
           @periods << period
         end
       end
