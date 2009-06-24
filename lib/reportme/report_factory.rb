@@ -168,61 +168,77 @@ module Reportme
     def run
     
       ensure_report_informations_table_exist
-    
-      while !@since.future?
-        
-        ReportFactory.periods(@since).each do |period|
       
-          @reports.each do |r|
-          
-            period_name = period[:name]
-          
-            next unless r.wants_period?(period_name)
+      periods_queue = []
+      
+      while !@since.future?
+        ReportFactory.periods(@since).each do |period|
+          periods_queue << period
+        end
+        @since += 1.day
+      end
+      
+      
+      # we will generate all daily reports first.
+      # this will speed up generation of weekly and monthly reports.
+      
+      periods_queue.reject{|p| p[:name] != :day}.each do |period|
+        report_period(period)
+      end
 
-            _von = period[:von]
-            _bis = period[:bis]
+      periods_queue.reject{|p| p[:name] == :day}.each do |period|
+        report_period(period)
+      end
+      
+    end
+  
+    def report_period(period)
+      @reports.each do |r|
+      
+        period_name = period[:name]
+      
+        next unless r.wants_period?(period_name)
 
-            von = _von.strftime("%Y-%m-%d 00:00:00")
-            bis = _bis.strftime("%Y-%m-%d 23:59:59")
+        _von = period[:von]
+        _bis = period[:bis]
 
-            table_name = r.table_name(period_name)
+        von = _von.strftime("%Y-%m-%d 00:00:00")
+        bis = _bis.strftime("%Y-%m-%d 23:59:59")
 
-            table_exist   = r.table_exist?(period_name)
-            sql           = r.sql(von, bis, period_name)
+        table_name = r.table_name(period_name)
+
+        table_exist   = r.table_exist?(period_name)
+        sql           = r.sql(von, bis, period_name)
+    
+        puts "report: #{r.table_name(period_name)} von: #{von}, bis: #{bis}"
+
+        ensure_report_table_exist(r, period_name)
         
-            puts "report: #{r.table_name(period_name)} von: #{von}, bis: #{bis}"
+        report_exists = report_exists?(table_name, von, bis)
+        
+        try_report_by_daily_reports(r, :week, _von, 6, 7)                                     if period_name == :week && !report_exists
+        try_report_by_daily_reports(r, :calendar_week, _von, 6, 7)                            if period_name == :calendar_week && !report_exists
+        
+        # TODO: implement monat by daily reports
+        # try_report_by_daily_reports(r, :month, _von, 29 + (_von.end_of_month.day == 31 ? 1 : 0), 30)  if period_name == :month && !report_exists
+        
+        try_report_by_daily_reports(r, :calendar_month, _von, _bis.day - _von.day, _bis.day)  if period_name == :calendar_month && !report_exists
 
-            ensure_report_table_exist(r, period_name)
-            
-            report_exists = report_exists?(table_name, von, bis)
-            
-            try_report_by_daily_reports(r, :week, _von, 6, 7)                                     if period_name == :week && !report_exists
-            try_report_by_daily_reports(r, :calendar_week, _von, 6, 7)                            if period_name == :calendar_week && !report_exists
-            
-            # TODO: implement monat by daily reports
-            # try_report_by_daily_reports(r, :month, _von, 29 + (_von.end_of_month.day == 31 ? 1 : 0), 30)  if period_name == :month && !report_exists
-            
-            try_report_by_daily_reports(r, :calendar_month, _von, _bis.day - _von.day, _bis.day)  if period_name == :calendar_month && !report_exists
-
-            report_exists = report_exists?(table_name, von, bis)
-            
-            if !report_exists || period_name == :today
-              ActiveRecord::Base.transaction do
-                exec("insert into #{report_information_table_name} values ('#{table_name}', '#{von}', '#{bis}', now());") unless report_exists
-            
-                if period_name == :today
-                  exec("truncate #{table_name};")
-                end
-              
-                exec("insert into #{table_name} #{sql};")
-              end
+        report_exists = report_exists?(table_name, von, bis)
+        
+        if !report_exists || period_name == :today
+          ActiveRecord::Base.transaction do
+            exec("insert into #{report_information_table_name} values ('#{table_name}', '#{von}', '#{bis}', now());") unless report_exists
+        
+            if period_name == :today
+              exec("truncate #{table_name};")
             end
-
-        
+          
+            exec("insert into #{table_name} #{sql};")
           end
         end
-        
-        @since += 1.day
+
+    
       end
       
     end
