@@ -353,5 +353,38 @@ class ReportmeTest < Test::Unit::TestCase
     
   end
 
+  should "probe existing reports" do
+    rme = create_visit_report_factory
+    assert rme.has_report?(:visits)
+    assert !rme.has_report?(:some_not_existing_report)
+  end
+
+  should "subscribe to visits report" do
+    rme = create_visit_report_factory
+    rme.subscribe :visits do
+    end
+    assert rme.has_subscribtion?(:visits)
+  end
+  
+  should "fail on subscribtion to not existing report" do
+    rme = create_visit_report_factory
+    assert_raise RuntimeError do 
+      rme.subscribe :some_not_existing_report do
+      end
+    end
+  end
+  
+  should "notify subscriptions" do
+    notifed = false
+
+    rme = create_visit_report_factory
+    rme.subscribe :visits do
+      notifed = true
+    end
+    
+    rme.notify_subscriber(:visits, :day, '2009-01-01'.to_datetime)
+    
+    assert notifed
+  end
     
 end

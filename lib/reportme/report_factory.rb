@@ -16,6 +16,7 @@ module Reportme
       
       @reports = []
       @since = since.to_date
+      @subscribtions = {}
     end
     
     def connect
@@ -161,6 +162,8 @@ module Reportme
         ActiveRecord::Base.transaction do
           exec("insert into #{report_information_table_name} values ('#{table_name}', '#{von}', '#{bis}', now());")
           exec("insert into #{table_name} select #{column_names.join(',')} from #{report.table_name(:day)} as d where d.von between '#{von}' and '#{(_von + num_days.days).strftime("%Y-%m-%d 00:00:00")}';")
+
+          notify_subscriber(report.name, period_name, _von)
         end
       end
     end
@@ -235,6 +238,8 @@ module Reportme
             end
           
             exec("insert into #{table_name} #{sql};")
+            
+            notify_subscriber(r.name, period_name, _von)
           end
         end
 
@@ -262,6 +267,35 @@ module Reportme
       puts "select_values: #{sql}"
       puts "------------------------ //"
       ActiveRecord::Base.connection.select_values(sql)
+    end
+
+    def has_subscribtion?(report_name)
+      !@subscribtions[report_name].blank?
+    end
+  
+    def has_report?(report_name)
+      !@reports.find{|r|r.name == report_name}.blank?
+    end
+  
+    def subscribe(report_name, &block)
+      report_name = report_name.to_sym
+      
+      raise "report: #{report_name} does not exist" unless has_report?(report_name)
+      
+      existing = @subscribtions[report_name] || (@subscribtions[report_name] = [])
+      existing << block
+    end
+    
+    def notify_subscriber(report_name, period, von)
+      
+      (@subscribtions[report_name] || []).each do |subscription|
+        begin
+          subscription.call(period, von)
+        rescue Exception => e
+          puts e
+        end
+      end
+      
     end
   
     def report(name, &block)
