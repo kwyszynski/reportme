@@ -49,7 +49,14 @@ module Reportme
 
       r = []
 
-      [:today, :day, :week, :calendar_week, :month, :calendar_month].each do |period|
+
+      p = []
+
+      # period "today" will never be generated for previous days
+      p << :today if today.to_date == Date.today
+      p += [:day, :week, :calendar_week, :month, :calendar_month]
+
+      p.each do |period|
       
         von, bis = case period
           when :today
@@ -204,7 +211,6 @@ module Reportme
         end
         @since += 1.day
       end
-      
       
       # we will generate all daily reports first.
       # this will speed up generation of weekly and monthly reports.
