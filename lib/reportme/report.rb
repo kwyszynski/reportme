@@ -3,7 +3,8 @@ module Reportme
   
     attr_reader :name
   
-    def initialize(name)
+    def initialize(report_factory, name)
+      @report_factory = report_factory
       @name = name
       @periods = [:today, :day, :week, :calendar_week, :month, :calendar_month]
     end
@@ -36,6 +37,10 @@ module Reportme
     def table_exist?(period)
       ActiveRecord::Base.connection.select_value("show tables like '#{table_name(period)}'") != nil
     end
+    
+    def select_value(sql);    @report_factory.select_value(sql);  end
+    def select_values(sql);   @report_factory.select_values(sql); end
+    def select_all(sql);      @report_factory.select_all(sql);    end
   
   end
 end
