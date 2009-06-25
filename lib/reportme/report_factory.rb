@@ -29,6 +29,13 @@ module Reportme
       @properties = properties
     end
   
+    def init(&block)
+      
+      raise "only one init block allowed" if @init
+      
+      @init = block;
+    end
+  
     def self.periods(today = Date.today)
 
       r = []
@@ -175,6 +182,8 @@ module Reportme
     end
     
     def run
+    
+      @init.call if @init
     
       ensure_report_informations_table_exist
       

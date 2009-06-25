@@ -386,5 +386,29 @@ class ReportmeTest < Test::Unit::TestCase
     
     assert notifed
   end
+  
+  should "call initializer before running reports" do
+    initialized = false
+
+    rme = create_visit_report_factory
+    rme.init do
+      initialized = true
+    end
+    rme.run
     
+    assert initialized
+    
+  end
+  
+  should "fail when multiple init blocks are defined" do
+
+    rme = create_visit_report_factory
+    rme.init do
+    end
+    
+    assert_raise RuntimeError do
+      rme.init do
+      end
+    end
+  end
 end
