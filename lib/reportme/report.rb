@@ -38,10 +38,11 @@ module Reportme
       ActiveRecord::Base.connection.select_value("show tables like '#{table_name(period)}'") != nil
     end
     
-    def select_value(sql);    @report_factory.select_value(sql);  end
-    def select_values(sql);   @report_factory.select_values(sql); end
-    def select_all(sql);      @report_factory.select_all(sql);    end
-    def select_rows(sql);     @report_factory.select_rows(sql);    end
+    def select_value(sql);    @report_factory.select_value(sql);    end
+    def select_values(sql);   @report_factory.select_values(sql);   end
+    def select_all(sql);      @report_factory.select_all(sql);      end
+    def select_rows(sql);     @report_factory.select_rows(sql);     end
+    def columns(table_name);  @report_factory.columns(table_name);  end
   
   end
 end

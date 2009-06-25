@@ -1,12 +1,23 @@
 module Reportme
   class Mailer < ActionMailer::Base
-    def message (from, recipients, subject, body)
+    def message (from, recipients, subject, body, attachments=[])
       from        'jan.zimmek@toptarif.de'
       recipients  'jan.zimmek@toptarif.de'
       subject     subject
       body        body
   
-      yield if block_given?
+      attachments.each do |att|
+        content_type = att[:content_type] 
+
+        attachment content_type do |a|
+          a.filename = att[:filename]
+          
+          a.body = File.read(att[:filepath])  if att[:filepath]
+          a.body = att[:text]                 if att[:text]
+          
+          a.transfer_encoding = 'quoted-printable' if content_type =~ /^text\//
+        end
+      end
 
       # # Include all the pdf files in the PDF subdirectory as attachments.
       # FileList['PDF/*.pdf'].each do |path|

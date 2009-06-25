@@ -35,8 +35,8 @@ module Reportme
       ActionMailer::Base.smtp_settings = settings
     end
     
-    def mail(from, recipients, subject, body)
-      Mailer.deliver_message(subject, body, subject, body)
+    def mail(from, recipients, subject, body, attachments=[])
+      Mailer.deliver_message(subject, body, subject, body, attachments)
     end
   
     def init(&block)
