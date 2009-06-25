@@ -301,6 +301,13 @@ module Reportme
       ActiveRecord::Base.connection.select_all(sql)
     end
 
+    def select_rows(sql)
+      puts "// ------------------------"
+      puts "select_rows: #{sql}"
+      puts "------------------------ //"
+      ActiveRecord::Base.connection.select_rows(sql)
+    end
+
     def select_values(sql)
       puts "// ------------------------"
       puts "select_values: #{sql}"

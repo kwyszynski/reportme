@@ -41,6 +41,7 @@ module Reportme
     def select_value(sql);    @report_factory.select_value(sql);  end
     def select_values(sql);   @report_factory.select_values(sql); end
     def select_all(sql);      @report_factory.select_all(sql);    end
+    def select_rows(sql);     @report_factory.select_rows(sql);    end
   
   end
 end
