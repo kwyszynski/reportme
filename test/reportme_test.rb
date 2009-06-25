@@ -176,8 +176,8 @@ class ReportmeTest < Test::Unit::TestCase
     periods = {}
     Reportme::ReportFactory.periods('2009-06-01'.to_date).each{|p| periods[p[:name]] = p}
     
-    assert_equal '2009-06-01 00:00:00'.to_datetime, periods[:today][:von]
-    assert_equal '2009-06-01 23:59:59'.to_datetime, periods[:today][:bis]
+    # assert_equal '2009-06-01 00:00:00'.to_datetime, periods[:today][:von]
+    # assert_equal '2009-06-01 23:59:59'.to_datetime, periods[:today][:bis]
     
     assert_equal '2009-05-31 00:00:00'.to_datetime, periods[:day][:von]
     assert_equal '2009-05-31 23:59:59'.to_datetime, periods[:day][:bis]
@@ -202,8 +202,8 @@ class ReportmeTest < Test::Unit::TestCase
     periods.clear
     Reportme::ReportFactory.periods('2009-06-24'.to_date).each{|p| periods[p[:name]] = p}
     
-    assert_equal '2009-06-24 00:00:00'.to_datetime, periods[:today][:von]
-    assert_equal '2009-06-24 23:59:59'.to_datetime, periods[:today][:bis]
+    # assert_equal '2009-06-24 00:00:00'.to_datetime, periods[:today][:von]
+    # assert_equal '2009-06-24 23:59:59'.to_datetime, periods[:today][:bis]
     
     assert_equal '2009-06-23 00:00:00'.to_datetime, periods[:day][:von]
     assert_equal '2009-06-23 23:59:59'.to_datetime, periods[:day][:bis]
@@ -227,8 +227,8 @@ class ReportmeTest < Test::Unit::TestCase
     periods.clear
     Reportme::ReportFactory.periods('2009-06-30'.to_date).each{|p| periods[p[:name]] = p}
     
-    assert_equal '2009-06-30 00:00:00'.to_datetime, periods[:today][:von]
-    assert_equal '2009-06-30 23:59:59'.to_datetime, periods[:today][:bis]
+    # assert_equal '2009-06-30 00:00:00'.to_datetime, periods[:today][:von]
+    # assert_equal '2009-06-30 23:59:59'.to_datetime, periods[:today][:bis]
     
     assert_equal '2009-06-29 00:00:00'.to_datetime, periods[:day][:von]
     assert_equal '2009-06-29 23:59:59'.to_datetime, periods[:day][:bis]
@@ -252,8 +252,8 @@ class ReportmeTest < Test::Unit::TestCase
     periods.clear
     Reportme::ReportFactory.periods('2009-05-01'.to_date).each{|p| periods[p[:name]] = p}
     
-    assert_equal '2009-05-01 00:00:00'.to_datetime, periods[:today][:von]
-    assert_equal '2009-05-01 23:59:59'.to_datetime, periods[:today][:bis]
+    # assert_equal '2009-05-01 00:00:00'.to_datetime, periods[:today][:von]
+    # assert_equal '2009-05-01 23:59:59'.to_datetime, periods[:today][:bis]
     
     assert_equal '2009-04-30 00:00:00'.to_datetime, periods[:day][:von]
     assert_equal '2009-04-30 23:59:59'.to_datetime, periods[:day][:bis]
@@ -277,8 +277,8 @@ class ReportmeTest < Test::Unit::TestCase
     periods.clear
     Reportme::ReportFactory.periods('2009-05-15'.to_date).each{|p| periods[p[:name]] = p}
     
-    assert_equal '2009-05-15 00:00:00'.to_datetime, periods[:today][:von]
-    assert_equal '2009-05-15 23:59:59'.to_datetime, periods[:today][:bis]
+    # assert_equal '2009-05-15 00:00:00'.to_datetime, periods[:today][:von]
+    # assert_equal '2009-05-15 23:59:59'.to_datetime, periods[:today][:bis]
     
     assert_equal '2009-05-14 00:00:00'.to_datetime, periods[:day][:von]
     assert_equal '2009-05-14 23:59:59'.to_datetime, periods[:day][:bis]
@@ -302,8 +302,8 @@ class ReportmeTest < Test::Unit::TestCase
     periods.clear
     Reportme::ReportFactory.periods('2009-05-31'.to_date).each{|p| periods[p[:name]] = p}
     
-    assert_equal '2009-05-31 00:00:00'.to_datetime, periods[:today][:von]
-    assert_equal '2009-05-31 23:59:59'.to_datetime, periods[:today][:bis]
+    # assert_equal '2009-05-31 00:00:00'.to_datetime, periods[:today][:von]
+    # assert_equal '2009-05-31 23:59:59'.to_datetime, periods[:today][:bis]
     
     assert_equal '2009-05-30 00:00:00'.to_datetime, periods[:day][:von]
     assert_equal '2009-05-30 23:59:59'.to_datetime, periods[:day][:bis]
@@ -319,7 +319,17 @@ class ReportmeTest < Test::Unit::TestCase
   
     assert_equal '2009-04-01 00:00:00'.to_datetime, periods[:calendar_month][:von]
     assert_equal '2009-04-30 23:59:59'.to_datetime, periods[:calendar_month][:bis]
+
+    ##
+    # today
+    ##
   
+    periods.clear
+    today = Date.today
+    Reportme::ReportFactory.periods(today).each{|p| periods[p[:name]] = p}
+    
+    assert_equal "#{today.strftime('%Y-%m-%d')} 00:00:00".to_datetime, periods[:today][:von]
+    assert_equal "#{today.strftime('%Y-%m-%d')} 23:59:59".to_datetime, periods[:today][:bis]
     
   end
 
