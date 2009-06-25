@@ -1,4 +1,5 @@
 require 'reportme/report'
+require 'reportme/mailer'
 
 module Reportme
   class ReportFactory
@@ -18,6 +19,7 @@ module Reportme
       @since = since.to_date
       @subscribtions = {}
       @report_exists_cache = []
+      @mailserver = nil
     end
     
     def connect
@@ -27,6 +29,14 @@ module Reportme
     
     def connection(properties)
       @properties = properties
+    end
+    
+    def smtp(settings)
+      ActionMailer::Base.smtp_settings = settings
+    end
+    
+    def mail(from, recipients, subject, body)
+      Mailer.deliver_message(subject, body, subject, body)
     end
   
     def init(&block)

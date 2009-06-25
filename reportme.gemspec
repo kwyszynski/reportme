@@ -6,7 +6,7 @@ Gem::Specification.new do |s|
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Jan Zimmek"]
-  s.date = %q{2009-06-24}
+  s.date = %q{2009-06-25}
   s.description = %q{Reportme is a thin ruby wrapper around your reporting sql queries which empowers you to automate, historicize, graph and mail them in an easy manner.}
   s.email = %q{jan.zimmek@web.de}
   s.extra_rdoc_files = [
@@ -19,6 +19,7 @@ Gem::Specification.new do |s|
      "Rakefile",
      "VERSION",
      "lib/reportme.rb",
+     "lib/reportme/mailer.rb",
      "lib/reportme/report.rb",
      "lib/reportme/report_factory.rb",
      "test/reportme_test.rb",
