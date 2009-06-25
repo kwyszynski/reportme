@@ -23,7 +23,6 @@ module Reportme
     end
     
     def connect
-      puts "connection: #{@properties}"
       ActiveRecord::Base.establish_connection(@properties)
     end
     
@@ -36,7 +35,7 @@ module Reportme
     end
     
     def mail(from, recipients, subject, body, attachments=[])
-      Mailer.deliver_message(subject, body, subject, body, attachments)
+      Mailer.deliver_message(from, recipients, subject, body, attachments)
     end
   
     def init(&block)
