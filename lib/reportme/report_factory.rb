@@ -7,7 +7,6 @@ module Reportme
     def self.create(since=Date.today, &block)
       rme = ReportFactory.new(since)
       rme.instance_eval(&block)
-      rme.connect
       rme.run
       rme
     end
@@ -22,12 +21,9 @@ module Reportme
       @mailserver = nil
     end
     
-    def connect
-      ActiveRecord::Base.establish_connection(@properties)
-    end
-    
     def connection(properties)
       @properties = properties
+      ActiveRecord::Base.establish_connection(@properties)
     end
     
     def smtp(settings)
