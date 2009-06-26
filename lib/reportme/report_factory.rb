@@ -7,7 +7,6 @@ module Reportme
     def self.create(since=Date.today, &block)
       rme = ReportFactory.new(since)
       rme.instance_eval(&block)
-      rme.run
       rme
     end
   
