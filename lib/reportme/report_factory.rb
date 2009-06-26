@@ -4,17 +4,15 @@ require 'reportme/mailer'
 module Reportme
   class ReportFactory
   
-    def self.create(since=Date.today, &block)
-      rme = ReportFactory.new(since)
+    def self.create(&block)
+      rme = ReportFactory.new
       rme.instance_eval(&block)
       rme
     end
   
-    def initialize(since)
-      raise "since cannot be in the future" if since.future?
+    def initialize
       
       @reports = []
-      @since = since.to_date
       @subscribtions = {}
       @report_exists_cache = []
       @mailserver = nil
@@ -33,10 +31,15 @@ module Reportme
       Mailer.deliver_message(from, recipients, subject, body, attachments)
     end
   
+    def since(since)
+      raise "since has already been set to '#{@since}' and cannot be changed to: '#{since}'"  if @since
+      raise "since cannot be in the future"                                                   if since.future?
+      
+      @since = since.to_date
+    end
+  
     def init(&block)
-      
       raise "only one init block allowed" if @init
-      
       @init = block;
     end
   
@@ -194,7 +197,8 @@ module Reportme
     
     def run
     
-      @init.call if @init
+      @init.call              if @init
+      @since = Date.today     unless @since
     
       ensure_report_informations_table_exist
       

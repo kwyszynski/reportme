@@ -26,8 +26,9 @@ class ReportmeTest < Test::Unit::TestCase
     
     opts = defaults.merge(opts)
     
-    @rme = Reportme::ReportFactory.create opts[:since] do
+    @rme = Reportme::ReportFactory.create do
       
+      since  opts[:since]
       connection :adapter => "mysql", :database => "report_me_test", :username => "root", :password => "root", :host => "localhost", :port => 3306
       
       report :visits do
@@ -421,4 +422,16 @@ class ReportmeTest < Test::Unit::TestCase
       end
     end
   end
+  
+  should "fail on multiple since calls" do
+    
+    rme = create_visit_report_factory
+    # 'since' will be implicitly called by ower testing factory method above
+    # any further call should fails
+
+    assert_raise RuntimeError do
+      rme.since 20.days.ago
+    end
+  end
+  
 end
