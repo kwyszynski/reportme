@@ -11,7 +11,6 @@ module Reportme
     end
   
     def initialize
-      
       @reports = []
       @subscribtions = {}
       @report_exists_cache = []
@@ -43,11 +42,9 @@ module Reportme
       @init = block;
     end
   
-    def self.periods(today = Date.today)
+    def self.periods(today)
 
       r = []
-
-
       p = []
 
       # period "today" will never be generated for previous days
@@ -128,7 +125,7 @@ module Reportme
       @report_exists_cache.clear
       exec("drop table if exists #{report_information_table_name};")
       
-      ReportFactory.periods.each do |period|
+      ReportFactory.periods(@since).each do |period|
         @reports.each do |r|
           exec("drop table if exists #{r.table_name(period[:name])};")
         end
