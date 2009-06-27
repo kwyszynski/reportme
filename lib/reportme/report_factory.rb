@@ -33,7 +33,6 @@ module Reportme
     dsl_attr :reports,        :default => lambda{ [] }
     dsl_attr :subscribtions,  :default => lambda{ {} }
     dsl_attr :properties,     :default => lambda{ {} }
-    dsl_attr :since
     dsl_attr :init
   
     def initialize
@@ -52,13 +51,6 @@ module Reportme
       Mailer.deliver_message(from, recipients, subject, body, attachments)
     end
   
-    def self.since(since)
-      raise "since has already been set to '#{@@since}' and cannot be changed to: '#{since}'"   if @@since
-      raise "since cannot be in the future"                                                     if since.future?
-      
-      @@since = since.to_date
-    end
-  
     def self.init(&block)
       raise "only one init block allowed" if @@init
       @@init = block;
@@ -66,11 +58,13 @@ module Reportme
   
     def self.periods(today)
 
+      today = today.to_date
+      
       r = []
       p = []
 
       # period "today" will never be generated for previous days
-      p << :today if today.to_date == Date.today
+      p << :today if today == Date.today
       p += [:day, :week, :calendar_week, :month, :calendar_month]
 
       p.each do |period|
@@ -203,21 +197,24 @@ module Reportme
       end
     end
     
-    def run
+    def run(since=Date.today)
+    
+      raise "since cannot be in the future" if since.future?
+    
     
       @@init.call              if @@init
-      @@since = Date.today     unless @@since
     
       ensure_report_informations_table_exist
       
       periods_queue = []
       
-      while !@@since.future?
-        ReportFactory.periods(@@since).each do |period|
+      loop do
+        ReportFactory.periods(since).each do |period|
           periods_queue << period
         end
-        @@since += 1.day
-      end
+        since += 1.day
+        break if since.future?
+      end 
       
       # we will generate all daily reports first.
       # this will speed up generation of weekly and monthly reports.

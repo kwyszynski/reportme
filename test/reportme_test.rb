@@ -24,7 +24,6 @@ class ReportmeTest < Test::Unit::TestCase
     
     defaults = {
       :periods => [],
-      :since => DateTime.now,
       :init => lambda {}
     }
     
@@ -34,7 +33,6 @@ class ReportmeTest < Test::Unit::TestCase
     TestReport.init do
       opts[:init].call
     end
-    TestReport.since opts[:since]
     TestReport.report :visits do
       periods opts[:periods]
       source do |von, bis|
@@ -70,22 +68,23 @@ class ReportmeTest < Test::Unit::TestCase
   end
 
   def teardown
-    exec("drop table if exists report_informations;")
+    unless @debug
+      exec("drop table if exists report_informations;")
     
-    [:today, :day, :week, :calendar_week, :month, :calendar_month].each do |period|
+      [:today, :day, :week, :calendar_week, :month, :calendar_month].each do |period|
       
-      TestReport.reports_value.each do |report|
-        exec("drop table if exists #{report.table_name(period)};")
+        TestReport.reports_value.each do |report|
+          exec("drop table if exists #{report.table_name(period)};")
+        end
       end
-    end
     
-    TestReport.reports_reset
-    TestReport.since_reset
-    TestReport.init_reset
-    TestReport.subscribtions_reset
-    TestReport.properties_reset
+      TestReport.reports_reset
+      TestReport.init_reset
+      TestReport.subscribtions_reset
+      TestReport.properties_reset
 
-    exec("truncate visits;");
+      exec("truncate visits;");
+    end
   end
   
   should "create one visitor in the today report for channel sem" do
@@ -146,6 +145,8 @@ class ReportmeTest < Test::Unit::TestCase
   
   should "create a daily report for the previous 3 days" do
   
+    # @debug = true
+  
     #should be ignored
     exec("insert into visits values (null, 'sem', curdate());");
   
@@ -157,7 +158,7 @@ class ReportmeTest < Test::Unit::TestCase
     # should be ignored
     exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 5 day));");
   
-    create_visit_report_factory(:since => 3.days.ago,:periods => [:day]).run
+    create_visit_report_factory(:periods => [:day]).run(3.days.ago)
     assert_equal 4, one("select count(1) as cnt from visits_day where von between date_sub(curdate(), interval 4 day) and date_sub(curdate(), interval 1 day)")["cnt"].to_i
   end
   
@@ -179,11 +180,10 @@ class ReportmeTest < Test::Unit::TestCase
     # should be ignored in weekly
     exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 9 day));");
   
-    create_visit_report_factory(:since => 10.days.ago, :periods => [:day]).run
+    create_visit_report_factory(:periods => [:day]).run(10.days.ago)
     
     exec("truncate visits;")
   
-    Reportme::ReportFactory.since_reset
     Reportme::ReportFactory.init_reset
   
     create_visit_report_factory(:periods => [:week]).run
@@ -377,11 +377,10 @@ class ReportmeTest < Test::Unit::TestCase
     # should be ignored in weekly
     exec("insert into visits values (null, 'sem', date_sub('#{today}', interval 10 day));");
   
-    create_visit_report_factory(:since => 15.days.ago, :periods => [:day]).run
+    create_visit_report_factory(:periods => [:day]).run(15.days.ago)
   
     exec("truncate visits;")
   
-    Reportme::ReportFactory.since_reset
     Reportme::ReportFactory.init_reset
   
     create_visit_report_factory(:periods => [:calendar_week]).run
@@ -446,17 +445,6 @@ class ReportmeTest < Test::Unit::TestCase
     assert_raise RuntimeError do
       rme.class.init do
       end
-    end
-  end
-  
-  should "fail on multiple since calls" do
-    
-    rme = create_visit_report_factory
-    # 'since' will be implicitly called by ower testing factory method above
-    # any further call should fails
-  
-    assert_raise RuntimeError do
-      rme.class.since 20.days.ago
     end
   end
   
