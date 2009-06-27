@@ -2,6 +2,8 @@ module Reportme
   class Report
   
     attr_reader :name
+    
+    dsl_attr :depends_on, :default => lambda{[]}
   
     def initialize(report_factory, name)
       @report_factory = report_factory
