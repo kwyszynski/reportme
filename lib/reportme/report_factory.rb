@@ -1,27 +1,50 @@
 require 'reportme/report'
 require 'reportme/mailer'
 
+class Object
+  
+  def self.dsl_attr(name, opts={})
+
+    self.class.send(:define_method, name) do |value|
+      key = "@@#{name}".to_sym
+      class_variable_set(key, value)
+    end
+    
+    
+    self.class.send(:define_method, "#{name}_value".to_sym) do
+      class_variable_get("@@#{name}".to_sym)
+    end
+
+    self.class.send(:define_method, "#{name}_reset".to_sym) do
+      default = opts[:default].try(:call)
+      class_variable_set("@@#{name}".to_sym, default)
+    end
+
+    default = opts[:default].try(:call)
+    send(name, default)
+
+  end
+  
+end
+
 module Reportme
   class ReportFactory
-  
-    def self.create(&block)
-      rme = ReportFactory.new
-      rme.instance_eval(&block)
-      rme
-    end
+
+    dsl_attr :reports,        :default => lambda{ [] }
+    dsl_attr :subscribtions,  :default => lambda{ {} }
+    dsl_attr :properties,     :default => lambda{ {} }
+    dsl_attr :since
+    dsl_attr :init
   
     def initialize
-      @reports = []
-      @subscribtions = {}
       @report_exists_cache = []
     end
     
-    def connection(properties)
-      @properties = properties
-      ActiveRecord::Base.establish_connection(@properties)
+    def self.connection(properties)
+      ActiveRecord::Base.establish_connection(@@properties = properties)
     end
     
-    def smtp(settings)
+    def self.smtp(settings)
       ActionMailer::Base.smtp_settings = settings
     end
     
@@ -29,16 +52,16 @@ module Reportme
       Mailer.deliver_message(from, recipients, subject, body, attachments)
     end
   
-    def since(since)
-      raise "since has already been set to '#{@since}' and cannot be changed to: '#{since}'"  if @since
-      raise "since cannot be in the future"                                                   if since.future?
+    def self.since(since)
+      raise "since has already been set to '#{@@since}' and cannot be changed to: '#{since}'"   if @@since
+      raise "since cannot be in the future"                                                     if since.future?
       
-      @since = since.to_date
+      @@since = since.to_date
     end
   
-    def init(&block)
-      raise "only one init block allowed" if @init
-      @init = block;
+    def self.init(&block)
+      raise "only one init block allowed" if @@init
+      @@init = block;
     end
   
     def self.periods(today)
@@ -101,7 +124,7 @@ module Reportme
     end
     
     def schema_name
-      schema = @properties[:database]
+      schema = @@properties[:database]
       raise "missing :database in connection properties" unless schema
       schema
     end
@@ -120,17 +143,6 @@ module Reportme
       select_values(sql)
     end
     
-    def reset
-      @report_exists_cache.clear
-      exec("drop table if exists #{report_information_table_name};")
-      
-      ReportFactory.periods(@since).each do |period|
-        @reports.each do |r|
-          exec("drop table if exists #{r.table_name(period[:name])};")
-        end
-      end
-    end
-
     def ensure_report_table_exist(report, period)
       unless report.table_exist?(period)
         table_name  = report.table_name(period)
@@ -186,25 +198,25 @@ module Reportme
           exec("insert into #{report_information_table_name} values ('#{table_name}', '#{von}', '#{bis}', now());")
           exec("insert into #{table_name} select #{column_names.join(',')} from #{report.table_name(:day)} as d where d.von between '#{von}' and '#{(_von + num_days.days).strftime("%Y-%m-%d 00:00:00")}';")
 
-          notify_subscriber(report.name, period_name, _von)
+          self.class.notify_subscriber(report.name, period_name, _von)
         end
       end
     end
     
     def run
     
-      @init.call              if @init
-      @since = Date.today     unless @since
+      @@init.call              if @@init
+      @@since = Date.today     unless @@since
     
       ensure_report_informations_table_exist
       
       periods_queue = []
       
-      while !@since.future?
-        ReportFactory.periods(@since).each do |period|
+      while !@@since.future?
+        ReportFactory.periods(@@since).each do |period|
           periods_queue << period
         end
-        @since += 1.day
+        @@since += 1.day
       end
       
       # we will generate all daily reports first.
@@ -221,7 +233,8 @@ module Reportme
     end
   
     def report_period(period)
-      @reports.each do |r|
+      
+      @@reports.each do |r|
       
         period_name = period[:name]
       
@@ -264,7 +277,7 @@ module Reportme
           
             exec("insert into #{table_name} #{sql};")
             
-            notify_subscriber(r.name, period_name, _von)
+            self.class.notify_subscriber(r.name, period_name, _von)
           end
         end
 
@@ -315,26 +328,26 @@ module Reportme
       ActiveRecord::Base.connection.select_values(sql)
     end
 
-    def has_subscribtion?(report_name)
-      !@subscribtions[report_name].blank?
+    def self.has_subscribtion?(report_name)
+      !@@subscribtions[report_name].blank?
     end
   
-    def has_report?(report_name)
-      !@reports.find{|r|r.name == report_name}.blank?
+    def self.has_report?(report_name)
+      !@@reports.find{|r|r.name == report_name}.blank?
     end
   
-    def subscribe(report_name, &block)
+    def self.subscribe(report_name, &block)
       report_name = report_name.to_sym
       
       raise "report: #{report_name} does not exist" unless has_report?(report_name)
       
-      existing = @subscribtions[report_name] || (@subscribtions[report_name] = [])
+      existing = @@subscribtions[report_name] || (@@subscribtions[report_name] = [])
       existing << block
     end
     
-    def notify_subscriber(report_name, period, von)
+    def self.notify_subscriber(report_name, period, von)
       
-      (@subscribtions[report_name] || []).each do |subscription|
+      (@@subscribtions[report_name] || []).each do |subscription|
         begin
           subscription.call(period, von)
         rescue Exception => e
@@ -344,14 +357,14 @@ module Reportme
       
     end
   
-    def report(name, &block)
+    def self.report(name, &block)
       
       name = name.to_sym
       
       r = Report.new(self, name)
       r.instance_eval(&block)
     
-      @reports << r
+      @@reports << r
     end
   
   end

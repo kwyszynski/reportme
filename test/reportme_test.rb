@@ -16,57 +16,76 @@ class ReportmeTest < Test::Unit::TestCase
         )
     SQL
   end
+
+  class TestReport < Reportme::ReportFactory
+  end
   
   def create_visit_report_factory(opts={})
     
     defaults = {
       :periods => [],
-      :since => DateTime.now
+      :since => DateTime.now,
+      :init => lambda {}
     }
     
     opts = defaults.merge(opts)
     
-    @rme = Reportme::ReportFactory.create do
-      
-      since  opts[:since]
-      connection :adapter => "mysql", :database => "report_me_test", :username => "root", :password => "root", :host => "localhost", :port => 3306
-      
-      report :visits do
-        periods opts[:periods]
-        source do |von, bis|
-          <<-SQL
-          select
-            '#{von}' as von,
-            date(created_at) as datum,
-            channel,
-            count(1) as cnt
-          from
-            visits
-          where
-            created_at between '#{von}' and '#{bis}'
-          group by
-            date(created_at),
-            channel
-          SQL
-        end
+    TestReport.connection :adapter => "mysql", :database => "report_me_test", :username => "root", :password => "root", :host => "localhost", :port => 3306
+    TestReport.init do
+      opts[:init].call
+    end
+    TestReport.since opts[:since]
+    TestReport.report :visits do
+      periods opts[:periods]
+      source do |von, bis|
+        <<-SQL
+        select
+          '#{von}' as von,
+          date(created_at) as datum,
+          channel,
+          count(1) as cnt
+        from
+          visits
+        where
+          created_at between '#{von}' and '#{bis}'
+        group by
+          date(created_at),
+          channel
+        SQL
       end
     end
-    @rme
+    
+    @rme = TestReport.new
+    
   end
   
   def exec(sql)
+    puts "exec: #{sql}"
     ActiveRecord::Base.connection.execute(sql)
   end
 
   def one(sql)
+    puts "one: #{sql}"
     ActiveRecord::Base.connection.select_one(sql)
   end
 
   def teardown
-    unless @debug
-      @rme.reset if @rme
-      exec("truncate visits;");
+    exec("drop table if exists report_informations;")
+    
+    [:today, :day, :week, :calendar_week, :month, :calendar_month].each do |period|
+      
+      TestReport.reports_value.each do |report|
+        exec("drop table if exists #{report.table_name(period)};")
+      end
     end
+    
+    TestReport.reports_reset
+    TestReport.since_reset
+    TestReport.init_reset
+    TestReport.subscribtions_reset
+    TestReport.properties_reset
+
+    exec("truncate visits;");
   end
   
   should "create one visitor in the today report for channel sem" do
@@ -81,6 +100,7 @@ class ReportmeTest < Test::Unit::TestCase
     create_visit_report_factory.run
     assert_equal 2, one("select cnt from visits_today where channel = 'sem' and datum = curdate()")["cnt"].to_i
   end
+  
   
   should "create visitors in the today report for channel sem and seo" do
     exec("insert into visits values (null, 'sem', now())");
@@ -162,6 +182,9 @@ class ReportmeTest < Test::Unit::TestCase
     create_visit_report_factory(:since => 10.days.ago, :periods => [:day]).run
     
     exec("truncate visits;")
+  
+    Reportme::ReportFactory.since_reset
+    Reportme::ReportFactory.init_reset
   
     create_visit_report_factory(:periods => [:week]).run
   
@@ -320,7 +343,7 @@ class ReportmeTest < Test::Unit::TestCase
   
     assert_equal '2009-04-01 00:00:00'.to_datetime, periods[:calendar_month][:von]
     assert_equal '2009-04-30 23:59:59'.to_datetime, periods[:calendar_month][:bis]
-
+  
     ##
     # today
     ##
@@ -333,7 +356,7 @@ class ReportmeTest < Test::Unit::TestCase
     assert_equal "#{today.strftime('%Y-%m-%d')} 23:59:59".to_datetime, periods[:today][:bis]
     
   end
-
+  
   should "create the calendar_weekly report by using 7 daily reports" do
     
     today = '2009-06-24'
@@ -353,58 +376,63 @@ class ReportmeTest < Test::Unit::TestCase
     exec("insert into visits values (null, 'sem', date_sub('#{today}', interval 9 day));");
     # should be ignored in weekly
     exec("insert into visits values (null, 'sem', date_sub('#{today}', interval 10 day));");
-
+  
     create_visit_report_factory(:since => 15.days.ago, :periods => [:day]).run
-
+  
     exec("truncate visits;")
+  
+    Reportme::ReportFactory.since_reset
+    Reportme::ReportFactory.init_reset
   
     create_visit_report_factory(:periods => [:calendar_week]).run
   
     assert_equal 7, one("select count(1) as cnt from visits_calendar_week where von between '2009-06-15 00:00:00' and '2009-06-21 00:00:00'")["cnt"].to_i
     
   end
-
+  
   should "probe existing reports" do
     rme = create_visit_report_factory
-    assert rme.has_report?(:visits)
-    assert !rme.has_report?(:some_not_existing_report)
+    assert rme.class.has_report?(:visits)
+    assert !rme.class.has_report?(:some_not_existing_report)
   end
-
+  
   should "subscribe to visits report" do
     rme = create_visit_report_factory
-    rme.subscribe :visits do
+    rme.class.subscribe :visits do
     end
-    assert rme.has_subscribtion?(:visits)
+    assert rme.class.has_subscribtion?(:visits)
   end
   
   should "fail on subscribtion to not existing report" do
     rme = create_visit_report_factory
     assert_raise RuntimeError do 
-      rme.subscribe :some_not_existing_report do
+      rme.class.subscribe :some_not_existing_report do
       end
     end
   end
   
   should "notify subscriptions" do
     notifed = false
-
+  
     rme = create_visit_report_factory
-    rme.subscribe :visits do
+    rme.class.subscribe :visits do
       notifed = true
     end
     
-    rme.notify_subscriber(:visits, :day, '2009-01-01'.to_datetime)
+    rme.class.notify_subscriber(:visits, :day, '2009-01-01'.to_datetime)
     
     assert notifed
   end
   
   should "call initializer before running reports" do
     initialized = false
-
-    rme = create_visit_report_factory
-    rme.init do
-      initialized = true
-    end
+  
+    rme = create_visit_report_factory({
+      :init => lambda {
+        initialized = true
+      }
+    })
+  
     rme.run
     
     assert initialized
@@ -412,13 +440,11 @@ class ReportmeTest < Test::Unit::TestCase
   end
   
   should "fail when multiple init blocks are defined" do
-
+  
     rme = create_visit_report_factory
-    rme.init do
-    end
     
     assert_raise RuntimeError do
-      rme.init do
+      rme.class.init do
       end
     end
   end
@@ -428,9 +454,9 @@ class ReportmeTest < Test::Unit::TestCase
     rme = create_visit_report_factory
     # 'since' will be implicitly called by ower testing factory method above
     # any further call should fails
-
+  
     assert_raise RuntimeError do
-      rme.since 20.days.ago
+      rme.class.since 20.days.ago
     end
   end
   
