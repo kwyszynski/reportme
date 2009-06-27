@@ -282,15 +282,23 @@ module Reportme
       end
       
     end
-  
+
     def exec(sql)
+      self.class.exec(sql)
+    end
+  
+    def self.exec(sql)
       puts "// ------------------------"
       puts "exec: #{sql}"
       puts "------------------------ //"
       ActiveRecord::Base.connection.execute(sql)
     end
-    
+
     def select_value(sql)
+      self.class.select_value(sql)
+    end
+    
+    def self.select_value(sql)
       puts "// ------------------------"
       puts "select_value: #{sql}"
       puts "------------------------ //"
@@ -298,6 +306,10 @@ module Reportme
     end
 
     def select_one(sql)
+      self.class.select_one(sql)
+    end
+    
+    def self.select_one(sql)
       puts "// ------------------------"
       puts "select_one: #{sql}"
       puts "------------------------ //"
@@ -305,6 +317,10 @@ module Reportme
     end
 
     def select_all(sql)
+      self.class.select_all(sql)
+    end
+
+    def self.select_all(sql)
       puts "// ------------------------"
       puts "select_all: #{sql}"
       puts "------------------------ //"
@@ -312,6 +328,10 @@ module Reportme
     end
 
     def select_rows(sql)
+      self.class.select_rows(sql)
+    end
+    
+    def self.select_rows(sql)
       puts "// ------------------------"
       puts "select_rows: #{sql}"
       puts "------------------------ //"
@@ -319,6 +339,10 @@ module Reportme
     end
 
     def select_values(sql)
+      self.class.select_values(sql)
+    end
+    
+    def self.select_values(sql)
       puts "// ------------------------"
       puts "select_values: #{sql}"
       puts "------------------------ //"
