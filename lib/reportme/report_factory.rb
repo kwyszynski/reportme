@@ -14,7 +14,6 @@ module Reportme
       @reports = []
       @subscribtions = {}
       @report_exists_cache = []
-      @mailserver = nil
     end
     
     def connection(properties)
