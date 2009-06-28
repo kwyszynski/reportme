@@ -448,4 +448,96 @@ class ReportmeTest < Test::Unit::TestCase
     end
   end
   
+  should "fail on non existing report dependencies" do
+
+    class ReportDependencyTestReport < Reportme::ReportFactory
+      connection :adapter => "mysql", :database => "report_me_test", :username => "root", :password => "root", :host => "localhost", :port => 3306
+      report :report1 do
+        depends_on [:report2]
+      end
+    end
+    
+    assert_raise RuntimeError do
+      ReportDependencyTestReport.new.validate_dependencies
+    end
+  end
+  
+  should "return a report by name" do
+    class ReportByNameTestReport < Reportme::ReportFactory
+      connection :adapter => "mysql", :database => "report_me_test", :username => "root", :password => "root", :host => "localhost", :port => 3306
+      report :report1 do
+      end
+      report :report2 do
+      end
+    end
+
+    assert :report1, ReportByNameTestReport.report_by_name(:report1).name
+    assert :report2, ReportByNameTestReport.report_by_name(:report2).name
+    
+  end
+  
+  should "compute a dependency hash" do
+    class ReportDependencyHashTestReport < Reportme::ReportFactory
+      connection :adapter => "mysql", :database => "report_me_test", :username => "root", :password => "root", :host => "localhost", :port => 3306
+      report :report1 do
+        depends_on [:report2, :report3]
+      end
+      report :report2 do
+        depends_on [:report3]
+      end
+      report :report3 do
+      end
+    end
+    
+    hash = ReportDependencyHashTestReport.new.__dependency_hash
+    
+    assert [
+      ReportDependencyHashTestReport.report_by_name(:report2),
+      ReportDependencyHashTestReport.report_by_name(:report3)
+      ], hash[:report1]
+
+    assert [
+      ReportDependencyHashTestReport.report_by_name(:report3)
+      ], hash[:report2]
+
+    assert [], hash[:report3]
+  end
+  
+  should "sort some periods" do
+    assert [:day, :today], Reportme::ReportFactory.__sort_periods([{:name => :today}, {:name => :day}])
+    assert [:day, :week, :today], Reportme::ReportFactory.__sort_periods([{:name => :today}, {:name => :day}, {:name => :week}])
+    assert [:day, :week], Reportme::ReportFactory.__sort_periods([{:name => :week}, {:name => :day}])
+    assert [:day, :week, :month, :calendar_month, :today], Reportme::ReportFactory.__sort_periods([{:name => :week}, {:name => :day}, {:name => :today}, {:name => :calendar_month}, {:name => :month}])
+    
+    assert [:day, :week, :week, :today, :today], Reportme::ReportFactory.__sort_periods([{:name => :week}, {:name => :today}, {:name => :today}, {:name => :week}, {:name => :day}])
+  end
+  
+  should "run reports in a dependency aware manner" do
+    class ReportDependencyAwareTestReport < Reportme::ReportFactory
+      connection :adapter => "mysql", :database => "report_me_test", :username => "root", :password => "root", :host => "localhost", :port => 3306
+      report :report1 do
+        depends_on [:report2, :report3]
+      end
+      report :report2 do
+        depends_on [:report3]
+      end
+      report :report3 do
+      end
+    end
+    
+    runned = []
+    
+    reports = []
+    reports << ReportDependencyAwareTestReport.report_by_name(:report1)
+    reports << ReportDependencyAwareTestReport.report_by_name(:report2)
+    reports << ReportDependencyAwareTestReport.report_by_name(:report3)
+    
+    ReportDependencyAwareTestReport.new.run_dependency_aware(reports) do |report|
+      runned << report.name
+    end
+    
+    assert [:report3, :report2, :report1], runned
+    
+  end
+  
 end

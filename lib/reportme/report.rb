@@ -3,16 +3,23 @@ module Reportme
   
     attr_reader :name
     
-    dsl_attr :depends_on, :default => lambda{[]}
-  
     def initialize(report_factory, name)
       @report_factory = report_factory
       @name = name
       @periods = [:today, :day, :week, :calendar_week, :month, :calendar_month]
+      @depends_on = []
     end
   
     def source(&block)
       @source = block
+    end
+    
+    def depends_on(dependencies=[])
+      @depends_on += dependencies
+    end
+    
+    def dependencies
+      @depends_on
     end
     
     def periods(wanted_periods=[])

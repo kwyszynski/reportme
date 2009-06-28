@@ -21,7 +21,7 @@ module Reportme
       ActionMailer::Base.smtp_settings = settings
     end
     
-    def mail(from, recipients, subject, body, attachments=[])
+    def self.mail(from, recipients, subject, body, attachments=[])
       Mailer.deliver_message(from, recipients, subject, body, attachments)
     end
   
@@ -91,13 +91,17 @@ module Reportme
       exists
     end
     
-    def schema_name
+    def self.schema_name
       schema = @@properties[:database]
       raise "missing :database in connection properties" unless schema
       schema
     end
-    
+
     def columns(table_name)
+      self.class.columns(table_name)
+    end
+    
+    def self.columns(table_name)
       sql = <<-SQL
       select
         column_name
@@ -111,12 +115,19 @@ module Reportme
       select_values(sql)
     end
     
-    def ensure_report_table_exist(report, period)
-      unless report.table_exist?(period)
-        table_name  = report.table_name(period)
-        sql         = report.sql('0000-00-00 00:00:00', '0000-00-00 00:00:00', period)
+    def ensure_report_tables_exist
+      
+      [:today, :day, :week, :calendar_week, :month, :calendar_month].each do |period|
+        @@reports.each  do |report|
+          next unless report.wants_period?(period)
+        
+          unless report.table_exist?(period)
+            table_name  = report.table_name(period)
+            sql         = report.sql('0000-00-00 00:00:00', '0000-00-00 00:00:00', period)
 
-        exec("create table #{table_name} ENGINE=InnoDB default CHARSET=utf8 as #{sql} limit 0;")
+            exec("create table #{table_name} ENGINE=InnoDB default CHARSET=utf8 as #{sql} limit 0;")
+          end
+        end
       end
     end
     
@@ -171,14 +182,25 @@ module Reportme
       end
     end
     
+    def validate_dependencies
+      @@reports.each do |r|
+        r.dependencies.each do |d|
+          raise "report #{r.name} depends on non existing report #{d}" unless self.class.has_report?(d)
+        end
+      end
+    end
+    
     def run(since=Date.today)
     
       raise "since cannot be in the future" if since.future?
-    
-    
+
       @@init.call              if @@init
     
       ensure_report_informations_table_exist
+      
+      validate_dependencies
+
+      ensure_report_tables_exist
       
       periods_queue = []
       
@@ -189,27 +211,90 @@ module Reportme
         since += 1.day
         break if since.future?
       end 
-      
+
       # we will generate all daily reports first.
       # this will speed up generation of weekly and monthly reports.
       
-      periods_queue.reject{|p| p[:name] != :day}.each do |period|
-        report_period(period)
-      end
-
-      periods_queue.reject{|p| p[:name] == :day}.each do |period|
-        report_period(period)
+      self.class.__sort_periods(periods_queue).each do |period|
+        
+        run_dependency_aware(@@reports) do |report|
+          __report_period(report, period)
+        end
+        
       end
       
     end
-  
-    def report_period(period)
+    
+    def run_dependency_aware(reports, &block)
+
+      dependencies = __dependency_hash
+      reports = reports.dup
       
+      while true
+
+        break if reports.blank?
+
+        num_run = 0
+
+        reports.each do |r|
+
+          next unless dependencies[r.name].blank?
+
+          block.call(r)
+
+          dependencies.each_pair do |key, values|
+
+            if values.include?(r)
+              # puts "remove '#{r[:name]}' from '#{key}' list of dependencies"
+              values.delete(r)
+            end
+          end
+
+          num_run += 1
+          reports.delete(r)
+
+        end
+
+        raise "deadlock" if num_run == 0
+
+      end
+      
+    end
+
+    def self.__sort_periods(periods)
+      
+      sorting = {
+        :today          => 99,
+        :day            => 1,
+        :week           => 2,
+        :calendar_week  => 3,
+        :month          => 4,
+        :calendar_month => 5
+      }
+      
+      periods.sort{|a, b| sorting[a[:name]] <=> sorting[b[:name]]}
+      
+    end
+
+    def __dependency_hash
+      dependencies = {}
       @@reports.each do |r|
+        
+        dependencies[r.name] = []
+        
+        r.dependencies.each do |d|
+          dependencies[r.name] << self.class.report_by_name(d)
+        end
+      end
       
-        period_name = period[:name]
+      dependencies
+    end
+  
+    def __report_period(r, period)
       
-        next unless r.wants_period?(period_name)
+      period_name = period[:name]
+      
+      if r.wants_period?(period_name)
 
         _von = period[:von]
         _bis = period[:bis]
@@ -223,8 +308,6 @@ module Reportme
         sql           = r.sql(von, bis, period_name)
     
         puts "report: #{r.table_name(period_name)} von: #{von}, bis: #{bis}"
-
-        ensure_report_table_exist(r, period_name)
         
         report_exists = report_exists?(table_name, von, bis)
         
@@ -241,10 +324,8 @@ module Reportme
         if !report_exists || period_name == :today
           ActiveRecord::Base.transaction do
             exec("insert into #{report_information_table_name} values ('#{table_name}', '#{von}', '#{bis}', now());") unless report_exists
-        
-            if period_name == :today
-              exec("truncate #{table_name};")
-            end
+
+            exec("truncate #{table_name};") if period_name == :today
           
             exec("insert into #{table_name} #{sql};")
             
@@ -252,7 +333,6 @@ module Reportme
           end
         end
 
-    
       end
       
     end
@@ -325,6 +405,10 @@ module Reportme
 
     def self.has_subscribtion?(report_name)
       !@@subscribtions[report_name].blank?
+    end
+    
+    def self.report_by_name(report_name)
+      @@reports.find{|r|r.name == report_name}
     end
   
     def self.has_report?(report_name)
