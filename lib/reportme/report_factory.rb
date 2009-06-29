@@ -115,18 +115,16 @@ module Reportme
       select_values(sql)
     end
     
-    def ensure_report_tables_exist
+    def ensure_report_tables_exist(report)
       
       [:today, :day, :week, :calendar_week, :month, :calendar_month].each do |period|
-        @@reports.each  do |report|
-          next unless report.wants_period?(period)
-        
-          unless report.table_exist?(period)
-            table_name  = report.table_name(period)
-            sql         = report.sql('0000-00-00 00:00:00', '0000-00-00 00:00:00', period)
+        next unless report.wants_period?(period)
+      
+        unless report.table_exist?(period)
+          table_name  = report.table_name(period)
+          sql         = report.sql('0000-00-00 00:00:00', '0000-00-00 00:00:00', period)
 
-            exec("create table #{table_name} ENGINE=InnoDB default CHARSET=utf8 as #{sql} limit 0;")
-          end
+          exec("create table #{table_name} ENGINE=InnoDB default CHARSET=utf8 as #{sql} limit 0;")
         end
       end
     end
@@ -200,7 +198,9 @@ module Reportme
       
       validate_dependencies
 
-      ensure_report_tables_exist
+      run_dependency_aware(@@reports) do |report|
+        ensure_report_tables_exist(report)
+      end
       
       periods_queue = []
       
