@@ -145,7 +145,6 @@ class ReportmeTest < Test::Unit::TestCase
   
   should "create a daily report for the previous 3 days" do
   
-    # @debug = true
   
     #should be ignored
     exec("insert into visits values (null, 'sem', curdate());");
@@ -359,6 +358,8 @@ class ReportmeTest < Test::Unit::TestCase
   
   should "create the calendar_weekly report by using 7 daily reports" do
     
+    # @debug = true
+    
     today = '2009-06-24'
     
     # should be ignored in weekly
@@ -382,10 +383,32 @@ class ReportmeTest < Test::Unit::TestCase
     exec("truncate visits;")
   
     Reportme::ReportFactory.init_reset
+
+    d1 = Date.today
+    d2 = today.to_date
   
-    create_visit_report_factory(:periods => [:calendar_week]).run
+    num_days = 0
+
+    while d2.past?
+      d2 += 1.day
+      num_days += 1
+    end
   
-    assert_equal 7, one("select count(1) as cnt from visits_calendar_week where von between '2009-06-15 00:00:00' and '2009-06-21 00:00:00'")["cnt"].to_i
+    create_visit_report_factory(:periods => [:calendar_week]).run(num_days.days.ago)
+  
+    day_lastweek = today.to_date - 7.days
+    
+    monday = day_lastweek - (day_lastweek.cwday - 1).days
+  
+    von, bis = [monday, monday + 6.days]
+  
+    von = von.to_datetime
+    bis = bis.to_datetime + 23.hours + 59.minutes + 59.seconds
+  
+    sql = "select count(1) as cnt from visits_calendar_week where von between '#{von.strftime('%Y-%m-%d 00:00:00')}' and '#{bis.strftime('%Y-%m-%d 23:59:59')}'"
+    
+#    assert_equal 7, one("select count(1) as cnt from visits_calendar_week where von between '2009-06-15 00:00:00' and '2009-06-21 00:00:00'")["cnt"].to_i
+    assert_equal 7, one(sql)["cnt"].to_i
     
   end
   
@@ -449,7 +472,7 @@ class ReportmeTest < Test::Unit::TestCase
   end
   
   should "fail on non existing report dependencies" do
-
+  
     class ReportDependencyTestReport < Reportme::ReportFactory
       connection :adapter => "mysql", :database => "report_me_test", :username => "root", :password => "root", :host => "localhost", :port => 3306
       report :report1 do
@@ -470,7 +493,7 @@ class ReportmeTest < Test::Unit::TestCase
       report :report2 do
       end
     end
-
+  
     assert :report1, ReportByNameTestReport.report_by_name(:report1).name
     assert :report2, ReportByNameTestReport.report_by_name(:report2).name
     
@@ -495,11 +518,11 @@ class ReportmeTest < Test::Unit::TestCase
       ReportDependencyHashTestReport.report_by_name(:report2),
       ReportDependencyHashTestReport.report_by_name(:report3)
       ], hash[:report1]
-
+  
     assert [
       ReportDependencyHashTestReport.report_by_name(:report3)
       ], hash[:report2]
-
+  
     assert [], hash[:report3]
   end
   

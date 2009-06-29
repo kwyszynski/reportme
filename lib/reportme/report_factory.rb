@@ -238,7 +238,10 @@ module Reportme
 
         reports.each do |r|
 
-          next unless dependencies[r.name].blank?
+          unless dependencies[r.name].blank?
+            "report ['#{r.name}'] waits on dependencies: #{dependencies[r.name].collect{|d|d.name}.join(',')}"
+            next
+          end
 
           block.call(r)
 
