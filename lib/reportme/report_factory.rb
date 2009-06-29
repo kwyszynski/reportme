@@ -235,7 +235,10 @@ module Reportme
           if report.temporary?
             [:today, :day, :week, :calendar_week, :month, :calendar_month].each do |period|
               
-              exec("drop table if exists #{report.table_name(period)}")
+              table_name = report.table_name(period)
+              
+              exec("delete from #{report_information_table_name} where report = '#{table_name}';")
+              exec("drop table if exists #{table_name};")
               
             end
           end
