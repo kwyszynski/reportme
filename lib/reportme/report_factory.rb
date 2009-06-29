@@ -188,20 +188,7 @@ module Reportme
       end
     end
     
-    def run(since=Date.today)
-    
-      raise "since cannot be in the future" if since.future?
-
-      @@init.call              if @@init
-    
-      ensure_report_informations_table_exist
-      
-      validate_dependencies
-
-      run_dependency_aware(@@reports) do |report|
-        ensure_report_tables_exist(report)
-      end
-      
+    def __fill_periods_queue(since)
       periods_queue = []
       
       loop do
@@ -211,16 +198,49 @@ module Reportme
         since += 1.day
         break if since.future?
       end 
-
-      # we will generate all daily reports first.
-      # this will speed up generation of weekly and monthly reports.
       
-      self.class.__sort_periods(periods_queue).each do |period|
-        
+      periods_queue
+    end
+    
+    def run(since=Date.today)
+    
+      raise "since cannot be in the future" if since.future?
+
+      begin
+        @@init.call              if @@init
+    
+        ensure_report_informations_table_exist
+      
+        validate_dependencies
+
         run_dependency_aware(@@reports) do |report|
-          __report_period(report, period)
+          ensure_report_tables_exist(report)
         end
+      
+        periods_queue = __fill_periods_queue(since)
+      
+        # we will generate all daily reports first.
+        # this will speed up generation of weekly and monthly reports.
+      
+        self.class.__sort_periods(periods_queue).each do |period|
         
+          run_dependency_aware(@@reports) do |report|
+            __report_period(report, period)
+          end
+        
+        end
+      ensure
+        @@reports.each do |report|
+          
+          if report.temporary?
+            [:today, :day, :week, :calendar_week, :month, :calendar_month].each do |period|
+              
+              exec("drop table if exists #{report.table_name(period)}")
+              
+            end
+          end
+          
+        end
       end
       
     end
@@ -239,7 +259,7 @@ module Reportme
         reports.each do |r|
 
           unless dependencies[r.name].blank?
-            "report ['#{r.name}'] waits on dependencies: #{dependencies[r.name].collect{|d|d.name}.join(',')}"
+            puts "report ['#{r.name}'] waits on dependencies: #{dependencies[r.name].collect{|d|d.name}.join(',')}"
             next
           end
 
@@ -439,11 +459,11 @@ module Reportme
       
     end
   
-    def self.report(name, &block)
+    def self.report(name, temporary=false, &block)
       
       name = name.to_sym
       
-      r = Report.new(self, name)
+      r = Report.new(self, name, temporary)
       r.instance_eval(&block)
     
       @@reports << r

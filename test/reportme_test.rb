@@ -358,8 +358,6 @@ class ReportmeTest < Test::Unit::TestCase
   
   should "create the calendar_weekly report by using 7 daily reports" do
     
-    # @debug = true
-    
     today = '2009-06-24'
     
     # should be ignored in weekly
@@ -561,6 +559,16 @@ class ReportmeTest < Test::Unit::TestCase
     
     assert [:report3, :report2, :report1], runned
     
+  end
+  
+  should "prefix tablename with tmp_ for temporary reports" do
+    class ReportTemporaryTestReport < Reportme::ReportFactory
+      connection :adapter => "mysql", :database => "report_me_test", :username => "root", :password => "root", :host => "localhost", :port => 3306
+      report :report1, :temporary => true do
+      end
+    end
+    
+    assert "tmp_report1_day", ReportTemporaryTestReport.report_by_name(:report1).table_name(:day)
   end
   
 end

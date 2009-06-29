@@ -3,13 +3,18 @@ module Reportme
   
     attr_reader :name
     
-    def initialize(report_factory, name)
+    def initialize(report_factory, name, temporary=false)
       @report_factory = report_factory
       @name = name
       @periods = [:today, :day, :week, :calendar_week, :month, :calendar_month]
       @depends_on = []
+      @temporary = temporary
     end
   
+    def temporary?
+      @temporary
+    end
+    
     def source(&block)
       @source = block
     end
@@ -40,7 +45,8 @@ module Reportme
     end
   
     def table_name(period)
-      "#{name}_#{period}"
+      prefix = temporary? ? "tmp_" : ""
+      "#{prefix}#{name}_#{period}"
     end
   
     def table_exist?(period)
