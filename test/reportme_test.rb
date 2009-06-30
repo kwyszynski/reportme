@@ -434,12 +434,20 @@ class ReportmeTest < Test::Unit::TestCase
   should "notify subscriptions" do
     notifed = false
   
-    rme = create_visit_report_factory
-    rme.class.subscribe :visits do
+    now = DateTime.now
+    _now = now.strftime("%Y-%m-%d 00:00:00")
+    _yesterday = (now - 1.day).strftime("%Y-%m-%d 00:00:00")
+    
+    exec("insert into visits values (null, 'sem', '#{now}')");
+    rme = create_visit_report_factory(:periods => [:day])
+    rme.class.subscribe :visits do |period, von|
+      
+      assert_equal :day, period
+      assert_equal _yesterday, von.strftime("%Y-%m-%d 00:00:00")
+      
       notifed = true
     end
-    
-    rme.class.notify_subscriber(:visits, :day, '2009-01-01'.to_datetime)
+    rme.run
     
     assert notifed
   end

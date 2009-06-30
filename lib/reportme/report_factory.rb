@@ -11,6 +11,7 @@ module Reportme
   
     def initialize
       @report_exists_cache = []
+      @@report_creations = []
     end
     
     def self.connection(properties)
@@ -73,6 +74,10 @@ module Reportme
   
     def report_information_table_name
       "report_informations"
+    end
+    
+    def remember_report_creation(report, period, von)
+      @@report_creations << {:report => report, :period => period, :von => von}
     end
   
     def report_information_table_name_exist?
@@ -175,7 +180,8 @@ module Reportme
           exec("insert into #{report_information_table_name} values ('#{table_name}', '#{von}', '#{bis}', now());")
           exec("insert into #{table_name} select #{column_names.join(',')} from #{report.table_name(:day)} as d where d.von between '#{von}' and '#{(_von + num_days.days).strftime("%Y-%m-%d 00:00:00")}';")
 
-          self.class.notify_subscriber(report.name, period_name, _von)
+          remember_report_creation(report, period_name, _von)
+          # self.class.notify_subscriber(report.name, period_name, _von)
         end
       end
     end
@@ -223,12 +229,12 @@ module Reportme
         # this will speed up generation of weekly and monthly reports.
       
         self.class.__sort_periods(periods_queue).each do |period|
-        
-          run_dependency_aware(@@reports) do |report|
+           run_dependency_aware(@@reports) do |report|
             __report_period(report, period)
           end
-        
         end
+        
+        self.class.__notify_subscriber
       ensure
         @@reports.each do |report|
           
@@ -355,7 +361,8 @@ module Reportme
           
             exec("insert into #{table_name} #{sql};")
             
-            self.class.notify_subscriber(r.name, period_name, _von)
+            remember_report_creation(r, period_name, _von)
+            # self.class.notify_subscriber(r.name, period_name, _von)
           end
         end
 
@@ -450,13 +457,18 @@ module Reportme
       existing << block
     end
     
-    def self.notify_subscriber(report_name, period, von)
+    def self.__notify_subscriber
       
-      (@@subscribtions[report_name] || []).each do |subscription|
-        begin
+      
+      @@report_creations.each do |creation|
+
+        report_name = creation[:report].name
+        period = creation[:period]
+        von = creation[:von]
+
+        (@@subscribtions[report_name] || []).each do |subscription|
+          puts "notify subscriber of report '#{report_name}' - period: '#{period}', von: '#{von}'"
           subscription.call(period, von)
-        rescue Exception => e
-          puts e
         end
       end
       
