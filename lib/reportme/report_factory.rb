@@ -475,8 +475,6 @@ module Reportme
   
     def self.report(name, temporary=false, &block)
       
-      name = name.to_sym
-      
       r = Report.new(self, name, temporary)
       r.instance_eval(&block)
     

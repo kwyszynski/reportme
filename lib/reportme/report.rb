@@ -4,6 +4,9 @@ module Reportme
     attr_reader :name
     
     def initialize(report_factory, name, temporary=false)
+      
+      name = name.to_sym
+      
       @report_factory = report_factory
       @name = name
       @periods = [:today, :day, :week, :calendar_week, :month, :calendar_month]
@@ -20,6 +23,7 @@ module Reportme
     end
     
     def depends_on(dependencies=[])
+      dependencies = dependencies.collect{|d| d.to_sym}
       @depends_on += dependencies
     end
     
@@ -28,6 +32,8 @@ module Reportme
     end
     
     def periods(wanted_periods=[])
+      wanted_periods = wanted_periods.collect{|p| p.to_sym}
+      
       unless wanted_periods.blank?
         @periods.clear
         wanted_periods.each do |period|
