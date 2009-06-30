@@ -467,7 +467,7 @@ module Reportme
 
         (@@subscribtions[report_name] || []).each do |subscription|
           puts "notify subscriber of report '#{report_name}' - period: '#{period}', von: '#{von}'"
-          subscription.call(period, von)
+          subscription.call(period, von, report_name)
         end
       end
       

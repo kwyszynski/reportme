@@ -440,9 +440,10 @@ class ReportmeTest < Test::Unit::TestCase
     
     exec("insert into visits values (null, 'sem', '#{now}')");
     rme = create_visit_report_factory(:periods => [:day])
-    rme.class.subscribe :visits do |period, von|
+    rme.class.subscribe :visits do |period, von, report_name|
       
       assert_equal :day, period
+      assert_equal :visits, report_name
       assert_equal _yesterday, von.strftime("%Y-%m-%d 00:00:00")
       
       notifed = true
