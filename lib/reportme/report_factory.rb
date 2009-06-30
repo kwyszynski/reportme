@@ -181,7 +181,6 @@ module Reportme
           exec("insert into #{table_name} select #{column_names.join(',')} from #{report.table_name(:day)} as d where d.von between '#{von}' and '#{(_von + num_days.days).strftime("%Y-%m-%d 00:00:00")}';")
 
           remember_report_creation(report, period_name, _von)
-          # self.class.notify_subscriber(report.name, period_name, _von)
         end
       end
     end
@@ -275,9 +274,7 @@ module Reportme
           block.call(r)
 
           dependencies.each_pair do |key, values|
-
             if values.include?(r)
-              # puts "remove '#{r[:name]}' from '#{key}' list of dependencies"
               values.delete(r)
             end
           end
@@ -339,9 +336,12 @@ module Reportme
         table_exist   = r.table_exist?(period_name)
         sql           = r.sql(von, bis, period_name)
     
-        puts "report: #{r.table_name(period_name)} von: #{von}, bis: #{bis}"
         
         report_exists = report_exists?(table_name, von, bis)
+
+        unless report_exists
+          puts "running report: #{r.table_name(period_name)} von: #{von}, bis: #{bis}"
+        end
         
         try_report_by_daily_reports(r, :week, _von, 6, 7)                                     if period_name == :week && !report_exists
         try_report_by_daily_reports(r, :calendar_week, _von, 6, 7)                            if period_name == :calendar_week && !report_exists
@@ -362,7 +362,6 @@ module Reportme
             exec("insert into #{table_name} #{sql};")
             
             remember_report_creation(r, period_name, _von)
-            # self.class.notify_subscriber(r.name, period_name, _von)
           end
         end
 
