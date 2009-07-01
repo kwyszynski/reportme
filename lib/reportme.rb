@@ -10,8 +10,7 @@ class Object
       key = "@@#{name}".to_sym
       class_variable_set(key, value)
     end
-    
-    
+
     self.class.send(:define_method, "#{name}_value".to_sym) do
       class_variable_get("@@#{name}".to_sym)
     end

@@ -289,6 +289,22 @@ module Reportme
       end
       
     end
+    
+    def self.reset(report_name, periods=[:day])
+      
+      report_name = report_name.to_sym
+      
+      raise "could not reset unknown report '#{report_name}'" unless has_report?(report_name)
+      
+      report = report_by_name(report_name)
+      
+      periods.each do |period|
+        table_name = report.table_name(period)
+        exec("delete from report_informations where report = '#{table_name}';")
+        exec("drop table if exists #{table_name};")
+      end
+      
+    end
 
     def self.__sort_periods(periods)
       
