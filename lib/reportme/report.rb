@@ -9,7 +9,6 @@ module Reportme
       
       @report_factory = report_factory
       @name = name
-      @periods = [:today, :day, :week, :calendar_week, :month, :calendar_month]
       @depends_on = []
       @temporary = temporary
     end
@@ -31,23 +30,18 @@ module Reportme
       @depends_on
     end
     
-    def periods(wanted_periods=[])
-      wanted_periods = wanted_periods.collect{|p| p.to_sym}
-      
-      unless wanted_periods.blank?
-        @periods.clear
-        wanted_periods.each do |period|
-          @periods << period
-        end
-      end
-    end
-    
-    def wants_period?(period)
-      @periods.include?(period)
-    end
-    
     def sql(von, bis, period_name)
-      @source.call(von, bis, period_name)
+      raw = @source.call(von, bis, period_name)
+      
+      <<-SQL
+        select
+          '#{von}' as von,
+          rtmp1.*
+        from (
+          #{raw}
+          ) rtmp1
+      SQL
+      
     end
   
     def table_name(period)
@@ -55,9 +49,6 @@ module Reportme
       "#{prefix}#{name}_#{period}"
     end
   
-    def table_exist?(period)
-      ActiveRecord::Base.connection.select_value("show tables like '#{table_name(period)}'") != nil
-    end
     
     def select_value(sql);    @report_factory.select_value(sql);    end
     def select_values(sql);   @report_factory.select_values(sql);   end

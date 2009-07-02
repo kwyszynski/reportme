@@ -1,8 +1,12 @@
 require 'reportme/report'
 require 'reportme/mailer'
+require 'reportme/sql'
+require 'reportme/period'
 
 module Reportme
   class ReportFactory
+
+    include Sql
 
     dsl_attr :reports,        :default => lambda{ [] }
     dsl_attr :subscribtions,  :default => lambda{ {} }
@@ -31,46 +35,6 @@ module Reportme
       @@init = block;
     end
   
-    def self.periods(today)
-
-      today = today.to_date
-      
-      r = []
-      p = []
-
-      # period "today" will never be generated for previous days
-      p << :today if today == Date.today
-      p += [:day, :week, :calendar_week, :month, :calendar_month]
-
-      p.each do |period|
-      
-        von, bis = case period
-          when :today
-            [today, today]
-          when :day
-            [today - 1.day, today - 1.day]
-          when :week
-            [today - 1.week, today - 1.day]
-          when :calendar_week
-            day_lastweek = today.to_date - 7.days
-            monday = day_lastweek - (day_lastweek.cwday - 1).days
-            [monday, monday + 6.days]
-          when :month
-            [today - 1.day - 30.days, today - 1.day]
-          when :calendar_month
-            n = today - 1.month
-            [n.beginning_of_month, n.end_of_month]
-        end
-      
-        von = von.to_datetime
-        bis = bis.to_datetime + 23.hours + 59.minutes + 59.seconds
-      
-        r << {:name => period, :von => von, :bis => bis}
-
-      end
-    
-      r
-    end
   
     def report_information_table_name
       "report_informations"
@@ -102,36 +66,23 @@ module Reportme
       schema
     end
 
-    def columns(table_name)
-      self.class.columns(table_name)
-    end
     
-    def self.columns(table_name)
-      sql = <<-SQL
-      select
-        column_name
-      from
-        information_schema.columns
-      where
-        table_schema = '#{schema_name}'
-        and table_name = '#{table_name}'
-      ;
-      SQL
-      select_values(sql)
-    end
-    
-    def ensure_report_tables_exist(report)
-      
-      [:today, :day, :week, :calendar_week, :month, :calendar_month].each do |period|
-        next unless report.wants_period?(period)
-      
-        unless report.table_exist?(period)
-          table_name  = report.table_name(period)
-          sql         = report.sql('0000-00-00 00:00:00', '0000-00-00 00:00:00', period)
+    def ensure_report_tables_exist(report, period_name)
 
-          exec("create table #{table_name} ENGINE=InnoDB default CHARSET=utf8 as #{sql} limit 0;")
+      table_name  = report.table_name(period_name)
+      sql         = report.sql('0000-00-00 00:00:00', '0000-00-00 00:00:00', period_name)
+  
+      unless table_exist?(table_name)
+        exec("create table #{table_name} ENGINE=InnoDB default CHARSET=utf8 as #{sql} limit 0;")
+        exec("alter table #{table_name} modify von datetime;")
+        exec("alter table #{table_name} add index(von);")
+
+        if period_name != :day
+          exec("alter table #{table_name} add day date after von;") 
+          exec("alter table #{table_name} add index(day);")
         end
       end
+      
     end
     
     def ensure_report_informations_table_exist
@@ -149,39 +100,8 @@ module Reportme
             ENGINE=InnoDB default CHARSET=utf8;
         SQL
         exec(ddl)
-      end
-    end
-    
-    def try_report_by_daily_reports(report, period_name, _von, num_days, num_days_required)
-      table_name = report.table_name(period_name)
-
-      von = _von.strftime("%Y-%m-%d 00:00:00")
-      bis = (_von + num_days.days).strftime("%Y-%m-%d 23:59:59")
-      
-      existing_daily_reports = select_value(<<-SQL
-        select
-          count(1) cnt
-        from
-          #{report_information_table_name}
-        where
-          report = '#{report.table_name(:day)}'
-          and von between '#{von}' and '#{(_von + num_days.days).strftime("%Y-%m-%d 00:00:00")}'
-      SQL
-      ).to_i
-      
-      puts "#{period_name}ly report depends on #{num_days_required} daily reports ... #{existing_daily_reports} daily found"
-      
-      if existing_daily_reports == num_days_required
-        
-        column_names = ["'#{von}' as von"]
-        column_names += columns(table_name).find_all{|c|c != "von"}.collect{|c|"d.#{c} as #{c}"}
-
-        ActiveRecord::Base.transaction do
-          exec("insert into #{report_information_table_name} values ('#{table_name}', '#{von}', '#{bis}', now());")
-          exec("insert into #{table_name} select #{column_names.join(',')} from #{report.table_name(:day)} as d where d.von between '#{von}' and '#{(_von + num_days.days).strftime("%Y-%m-%d 00:00:00")}';")
-
-          remember_report_creation(report, period_name, _von)
-        end
+        exec("alter table report_informations add index(report);") 
+        exec("alter table report_informations add index(report, von);") 
       end
     end
     
@@ -193,64 +113,82 @@ module Reportme
       end
     end
     
-    def __fill_periods_queue(since)
-      periods_queue = []
+    def historice(since=Date.today)
+      raise "since cannot be in the future" if since.future?
+
+      __do_and_clean :calendar_week do
       
-      loop do
-        ReportFactory.periods(since).each do |period|
-          periods_queue << period
-        end
-        since += 1.day
-        break if since.future?
-      end 
-      
-      periods_queue
+        loop do
+          
+          run_dependency_aware(@@reports) do |report|
+            next if report.temporary?
+            __report_period(report, Period.calc(since, [:calendar_week]).first)
+          end
+
+          since += 1.day
+          break if since.future?
+        end 
+
+        self.class.__notify_subscriber
+      end
     end
     
     def run(since=Date.today)
     
       raise "since cannot be in the future" if since.future?
 
-      begin
-        @@init.call              if @@init
-    
-        ensure_report_informations_table_exist
+      __do_and_clean :day, :init => true do
+        
+        loop do
+          
+          run_dependency_aware(@@reports) do |report|
+            __report_period(report, Period.calc(since, [:day]).first)
+          end
+
+          since += 1.day
+          break if since.future?
+        end 
+
+        self.class.__notify_subscriber
+      end
       
+    end
+    
+    def __do_and_clean(period_name, opts={}, &block)
+      
+      opts = {
+        :init => false
+      }.merge(opts)
+      
+      begin
+        @@report_creations.clear
+        
+        ensure_report_informations_table_exist
+
         validate_dependencies
+        
+        @@init.call if @@init && opts[:init]
 
         run_dependency_aware(@@reports) do |report|
-          ensure_report_tables_exist(report)
+          ensure_report_tables_exist(report, period_name)
         end
-      
-        periods_queue = __fill_periods_queue(since)
-      
-        # we will generate all daily reports first.
-        # this will speed up generation of weekly and monthly reports.
-      
-        self.class.__sort_periods(periods_queue).each do |period|
-           run_dependency_aware(@@reports) do |report|
-            __report_period(report, period)
-          end
-        end
-        
-        self.class.__notify_subscriber
+
+
+        block.call
       ensure
         @@reports.each do |report|
           
           if report.temporary?
             [:today, :day, :week, :calendar_week, :month, :calendar_month].each do |period|
-              
               table_name = report.table_name(period)
               
               exec("delete from #{report_information_table_name} where report = '#{table_name}';")
               exec("drop table if exists #{table_name};")
-              
             end
           end
           
         end
       end
-      
     end
     
     def run_dependency_aware(reports, &block)
@@ -290,7 +228,7 @@ module Reportme
       
     end
     
-    def self.reset(report_name, periods=[:day])
+    def self.reset(report_name, periods=[:day, :calendar_week, :calendar_month])
       
       report_name = report_name.to_sym
       
@@ -303,21 +241,6 @@ module Reportme
         exec("delete from report_informations where report = '#{table_name}';")
         exec("drop table if exists #{table_name};")
       end
-      
-    end
-
-    def self.__sort_periods(periods)
-      
-      sorting = {
-        :today          => 99,
-        :day            => 1,
-        :week           => 2,
-        :calendar_week  => 3,
-        :month          => 4,
-        :calendar_month => 5
-      }
-      
-      periods.sort{|a, b| sorting[a[:name]] <=> sorting[b[:name]]}
       
     end
 
@@ -337,118 +260,49 @@ module Reportme
   
     def __report_period(r, period)
       
-      period_name = period[:name]
-      
-      if r.wants_period?(period_name)
+      period_name   = period[:name]
+      _von          = period[:von]
+      _bis          = period[:bis]
 
-        _von = period[:von]
-        _bis = period[:bis]
+      von = _von.strftime("%Y-%m-%d 00:00:00")
+      bis = _bis.strftime("%Y-%m-%d 23:59:59")
 
-        von = _von.strftime("%Y-%m-%d 00:00:00")
-        bis = _bis.strftime("%Y-%m-%d 23:59:59")
+      table_name = r.table_name(period_name)
 
-        table_name = r.table_name(period_name)
+      table_exist   = table_exist?(period_name)
+      sql           = r.sql(von, bis, period_name)
 
-        table_exist   = r.table_exist?(period_name)
-        sql           = r.sql(von, bis, period_name)
-    
-        
-        report_exists = report_exists?(table_name, von, bis)
+      report_exists = report_exists?(table_name, von, bis)
 
-        unless report_exists
-          puts "running report: #{r.table_name(period_name)} von: #{von}, bis: #{bis}"
-        end
-        
-        try_report_by_daily_reports(r, :week, _von, 6, 7)                                     if period_name == :week && !report_exists
-        try_report_by_daily_reports(r, :calendar_week, _von, 6, 7)                            if period_name == :calendar_week && !report_exists
-        
-        # TODO: implement monat by daily reports
-        # try_report_by_daily_reports(r, :month, _von, 29 + (_von.end_of_month.day == 31 ? 1 : 0), 30)  if period_name == :month && !report_exists
-        
-        try_report_by_daily_reports(r, :calendar_month, _von, _bis.day - _von.day, _bis.day)  if period_name == :calendar_month && !report_exists
-
-        report_exists = report_exists?(table_name, von, bis)
-        
-        if !report_exists || period_name == :today
-          ActiveRecord::Base.transaction do
-            exec("insert into #{report_information_table_name} values ('#{table_name}', '#{von}', '#{bis}', now());") unless report_exists
-
-            exec("truncate #{table_name};") if period_name == :today
+      unless report_exists
+        ActiveRecord::Base.transaction do
+          exec("insert into #{report_information_table_name} values ('#{table_name}', '#{von}', '#{bis}', now());") unless report_exists
           
-            exec("insert into #{table_name} #{sql};")
+          if period_name != :day
             
-            remember_report_creation(r, period_name, _von)
+            table_name_day = r.table_name(:day)
+            column_names = columns(table_name_day) - ["von"]
+            
+            sql = <<-SQL
+              select
+                '#{von}' as von,
+                #{(column_names + ['date(von) as day']).join("\n,")}
+              from
+                #{table_name_day}
+              where
+                von between '#{von}' and '#{bis}'
+              group by
+                #{(column_names + ['date(von)']).join("\n,")}
+            SQL
+            
           end
+
+          exec("insert into #{table_name} #{sql};")
+          
+        
+          remember_report_creation(r, period_name, _von)
         end
-
       end
-      
-    end
-
-    def exec(sql)
-      self.class.exec(sql)
-    end
-  
-    def self.exec(sql)
-      puts "// ------------------------"
-      puts "exec: #{sql}"
-      puts "------------------------ //"
-      ActiveRecord::Base.connection.execute(sql)
-    end
-
-    def select_value(sql)
-      self.class.select_value(sql)
-    end
-    
-    def self.select_value(sql)
-      puts "// ------------------------"
-      puts "select_value: #{sql}"
-      puts "------------------------ //"
-      ActiveRecord::Base.connection.select_value(sql)
-    end
-
-    def select_one(sql)
-      self.class.select_one(sql)
-    end
-    
-    def self.select_one(sql)
-      puts "// ------------------------"
-      puts "select_one: #{sql}"
-      puts "------------------------ //"
-      ActiveRecord::Base.connection.select_one(sql)
-    end
-
-    def select_all(sql)
-      self.class.select_all(sql)
-    end
-
-    def self.select_all(sql)
-      puts "// ------------------------"
-      puts "select_all: #{sql}"
-      puts "------------------------ //"
-      ActiveRecord::Base.connection.select_all(sql)
-    end
-
-    def select_rows(sql)
-      self.class.select_rows(sql)
-    end
-    
-    def self.select_rows(sql)
-      puts "// ------------------------"
-      puts "select_rows: #{sql}"
-      puts "------------------------ //"
-      ActiveRecord::Base.connection.select_rows(sql)
-    end
-
-    def select_values(sql)
-      self.class.select_values(sql)
-    end
-    
-    def self.select_values(sql)
-      puts "// ------------------------"
-      puts "select_values: #{sql}"
-      puts "------------------------ //"
-      ActiveRecord::Base.connection.select_values(sql)
     end
 
     def self.has_subscribtion?(report_name)
@@ -473,8 +327,6 @@ module Reportme
     end
     
     def self.__notify_subscriber
-      
-      
       @@report_creations.each do |creation|
 
         report_name = creation[:report].name
