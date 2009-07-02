@@ -358,7 +358,9 @@ class ReportmeTest < Test::Unit::TestCase
   
   should "create the calendar_weekly report by using 7 daily reports" do
     
-    today = '2009-06-24'
+    # @debug = true
+    # today = '2009-06-24'
+    today = (Date.today - 1.day).strftime("%Y-%m-%d")
     
     # should be ignored in weekly
     exec("insert into visits values (null, 'sem', '#{today}');");
