@@ -457,6 +457,28 @@ class ReportmeTest < Test::Unit::TestCase
     assert notifed
   end
   
+  should "not notify subscribers" do
+    notifed = false
+  
+    now = DateTime.now
+    _now = now.strftime("%Y-%m-%d 00:00:00")
+    _yesterday = (now - 1.day).strftime("%Y-%m-%d 00:00:00")
+    
+    exec("insert into visits values (null, 'sem', '#{now}')");
+    rme = create_visit_report_factory(:periods => [:day])
+    rme.class.subscribe :visits do |period, von, report_name|
+      
+      assert_equal :day, period
+      assert_equal :visits, report_name
+      assert_equal _yesterday, von.strftime("%Y-%m-%d 00:00:00")
+      
+      notifed = true
+    end
+    rme.run(:notify_subscribers => false)
+    
+    assert !notifed
+  end
+  
   should "call initializer before running reports" do
     initialized = false
   

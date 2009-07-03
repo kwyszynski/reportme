@@ -113,17 +113,23 @@ module Reportme
       end
     end
     
+    def __opts(opts={})
+      opts = {
+        :since => Date.today,
+        :init => false,
+        :notify_subscribers => true
+      }.merge(opts)      
+    end
+    
     def historice(opts={})
 
-      opts = {
-        :since => Date.today  
-      }.merge(opts)
+      opts = __opts(opts)
 
       since = opts[:since]
 
       raise "since cannot be in the future" if since.future?
 
-      __do_and_clean :calendar_week do
+      __do_and_clean(:calendar_week, opts) do
       
         loop do
           
@@ -136,21 +142,20 @@ module Reportme
           break if since.future?
         end 
 
-        self.class.__notify_subscriber
       end
     end
     
     def run(opts={})
 
-      opts = {
-        :since => Date.today  
-      }.merge(opts)
+      opts = __opts(opts)
+
+      opts[:init] = true
 
       since = opts[:since]
     
       raise "since cannot be in the future" if since.future?
 
-      __do_and_clean :day, :init => true do
+      __do_and_clean(:day, opts) do
         
         loop do
           
@@ -162,16 +167,11 @@ module Reportme
           break if since.future?
         end 
 
-        self.class.__notify_subscriber
       end
       
     end
     
-    def __do_and_clean(period_name, opts={}, &block)
-      
-      opts = {
-        :init => false
-      }.merge(opts)
+    def __do_and_clean(period_name, opts, &block)
       
       begin
         @@report_creations.clear
@@ -186,8 +186,10 @@ module Reportme
           ensure_report_tables_exist(report, period_name)
         end
 
-
         block.call
+        
+        self.class.__notify_subscriber if opts[:notify_subscribers]
+        
       ensure
         @@reports.each do |report|
           
