@@ -148,6 +148,26 @@ module Reportme
       end
     end
     
+    def force_notification(report_name, period_name, since = Date.today)
+
+      loop do
+
+        period = Period.calc(since, [period_name]).first
+        von = period[:von]
+
+        puts "force notification: #{report_name}, #{period_name}"
+
+        (@@subscribtions[report_name] || []).each do |subscription|
+          puts "notify subscriber of report '#{report_name}' - period: '#{period_name}', von: '#{von}'"
+          subscription.call(period_name, von, report_name)
+        end
+
+        since += 1.day
+        break if since.future?
+      end 
+      
+    end
+    
     def run(opts={})
 
       opts = __opts(opts)
