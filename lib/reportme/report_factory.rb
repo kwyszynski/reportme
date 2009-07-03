@@ -113,7 +113,14 @@ module Reportme
       end
     end
     
-    def historice(since=Date.today)
+    def historice(opts={})
+
+      opts = {
+        :since => Date.today  
+      }.merge(opts)
+
+      since = opts[:since]
+
       raise "since cannot be in the future" if since.future?
 
       __do_and_clean :calendar_week do
@@ -133,7 +140,13 @@ module Reportme
       end
     end
     
-    def run(since=Date.today)
+    def run(opts={})
+
+      opts = {
+        :since => Date.today  
+      }.merge(opts)
+
+      since = opts[:since]
     
       raise "since cannot be in the future" if since.future?
 

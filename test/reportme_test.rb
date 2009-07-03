@@ -159,7 +159,7 @@ class ReportmeTest < Test::Unit::TestCase
     # should be ignored
     exec("insert into visits values (null, 'sem', date_sub(curdate(), interval 5 day));");
   
-    create_visit_report_factory(:periods => [:day]).run(3.days.ago)
+    create_visit_report_factory(:periods => [:day]).run(:since => 3.days.ago)
     assert_equal 4, one("select count(1) as cnt from visits_day where von between date_sub(curdate(), interval 4 day) and date_sub(curdate(), interval 1 day)")["cnt"].to_i
   end
   
