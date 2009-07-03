@@ -129,13 +129,16 @@ module Reportme
 
       raise "since cannot be in the future" if since.future?
 
-      __do_and_clean(:calendar_week, opts) do
+      __do_and_clean(:calendar_week, opts) do |period_name|
       
         loop do
           
           run_dependency_aware(@@reports) do |report|
+            
             next if report.temporary?
-            __report_period(report, Period.calc(since, [:calendar_week]).first)
+            next unless report.historice?(period_name)
+            
+            __report_period(report, Period.calc(since, [period_name]).first)
           end
 
           since += 1.day
@@ -155,12 +158,12 @@ module Reportme
     
       raise "since cannot be in the future" if since.future?
 
-      __do_and_clean(:day, opts) do
+      __do_and_clean(:day, opts) do |period_name|
         
         loop do
           
           run_dependency_aware(@@reports) do |report|
-            __report_period(report, Period.calc(since, [:day]).first)
+            __report_period(report, Period.calc(since, [period_name]).first)
           end
 
           since += 1.day
@@ -183,10 +186,15 @@ module Reportme
         @@init.call if @@init && opts[:init]
 
         run_dependency_aware(@@reports) do |report|
+          
+          if period_name != :day
+            next unless report.historice?(period_name)
+          end
+          
           ensure_report_tables_exist(report, period_name)
         end
 
-        block.call
+        block.call(period_name)
         
         self.class.__notify_subscriber if opts[:notify_subscribers]
         

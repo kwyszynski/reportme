@@ -10,6 +10,7 @@ module Reportme
       @report_factory = report_factory
       @name = name
       @depends_on = []
+      @histories = []
       @temporary = temporary
     end
   
@@ -19,6 +20,14 @@ module Reportme
     
     def source(&block)
       @source = block
+    end
+    
+    def histories(histories=[])
+      @histories = histories
+    end
+    
+    def historice?(history)
+      @histories.include?(history)
     end
     
     def depends_on(dependencies=[])

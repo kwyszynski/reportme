@@ -605,5 +605,5 @@ class ReportmeTest < Test::Unit::TestCase
     
     assert "tmp_report1_day", ReportTemporaryTestReport.report_by_name(:report1).table_name(:day)
   end
-  
+
 end
