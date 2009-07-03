@@ -78,8 +78,8 @@ module Reportme
         exec("alter table #{table_name} add index(von);")
 
         if period_name != :day
-          exec("alter table #{table_name} add day date after von;") 
-          exec("alter table #{table_name} add index(day);")
+          exec("alter table #{table_name} add _day date after von;") 
+          exec("alter table #{table_name} add index(_day);")
         end
       end
       
@@ -301,13 +301,13 @@ module Reportme
             sql = <<-SQL
               select
                 '#{von}' as von,
-                #{(column_names + ['date(von) as day']).join("\n,")}
+                #{(['date(von) as _day'] + column_names).join("\n,")}
               from
                 #{table_name_day}
               where
                 von between '#{von}' and '#{bis}'
               group by
-                #{(column_names + ['date(von)']).join("\n,")}
+                #{(['date(von)'] + column_names).join("\n,")}
             SQL
             
           end
