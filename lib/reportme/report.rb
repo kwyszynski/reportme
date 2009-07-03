@@ -1,7 +1,7 @@
 module Reportme
   class Report
   
-    attr_reader :name
+    attr_accessor :name
     
     def initialize(report_factory, name, temporary=false)
       

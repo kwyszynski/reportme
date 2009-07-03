@@ -258,6 +258,26 @@ module Reportme
       end
       
     end
+    
+    def self.print_dependency_tree(level=0, reports=@@reports)
+      
+      reports.each do |r|
+
+        if level > 0
+          (level + 1).times do
+            print " "
+          end
+        end
+
+        print "|-"
+        
+        puts r.name
+        
+        print_dependency_tree(level + 1, r.dependencies.collect{|d| report_by_name(d)})
+        
+      end
+      
+    end
 
     def __dependency_hash
       dependencies = {}
