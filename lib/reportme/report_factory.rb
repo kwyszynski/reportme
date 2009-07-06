@@ -70,9 +70,11 @@ module Reportme
     def ensure_report_tables_exist(report, period_name)
 
       table_name  = report.table_name(period_name)
-      sql         = report.sql('0000-00-00 00:00:00', '0000-00-00 00:00:00', period_name)
   
       unless table_exist?(table_name)
+
+        sql = report.sql('0000-00-00 00:00:00', '0000-00-00 00:00:00', :day)
+
         exec("create table #{table_name} ENGINE=InnoDB default CHARSET=utf8 as #{sql} limit 0;")
         exec("alter table #{table_name} modify von datetime;")
         exec("alter table #{table_name} add index(von);")
