@@ -83,6 +83,8 @@ module Reportme
           exec("alter table #{table_name} add _day date after von;") 
           exec("alter table #{table_name} add index(_day);")
         end
+        
+        report.setup_callback.call(period_name) if report.setup_callback
       end
       
     end

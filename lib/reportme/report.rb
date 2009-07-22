@@ -2,6 +2,7 @@ module Reportme
   class Report
   
     attr_accessor :name
+    attr_accessor :setup_callback
     
     def initialize(report_factory, name, temporary=false)
       
@@ -39,6 +40,10 @@ module Reportme
       @depends_on
     end
     
+    def setup(&block)
+      @setup_callback = block
+    end
+    
     def sql(von, bis, period_name)
       raw = @source.call(von, bis, period_name)
       
@@ -58,7 +63,7 @@ module Reportme
       "#{prefix}#{name}_#{period}"
     end
   
-    
+    def exec(sql);            @report_factory.exec(sql);            end
     def select_value(sql);    @report_factory.select_value(sql);    end
     def select_values(sql);   @report_factory.select_values(sql);   end
     def select_all(sql);      @report_factory.select_all(sql);      end
