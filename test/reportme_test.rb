@@ -124,6 +124,7 @@ class ReportmeTest < Test::Unit::TestCase
     assert_equal 2, one("select cnt from visits_day where channel = 'seo' and datum = date_sub(curdate(), interval 1 day)")["cnt"].to_i
     assert_equal 3, one("select cnt from visits_day where channel = 'sem' and datum = date_sub(curdate(), interval 1 day)")["cnt"].to_i
   end
+
   
   # should "report a week as 7 days since yesterday ignoring days before or after this" do
   # 

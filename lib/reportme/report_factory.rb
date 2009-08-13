@@ -291,6 +291,35 @@ module Reportme
       
     end
     
+    def explain_sql(opts={})
+      
+      opts = {
+        :since => Date.today,
+        :report_names => @@reports.collect{|it|it.name}
+      }.merge(opts)
+      
+      @@reports.each do |report|
+        period = Period.calc(opts[:since]).first
+
+        next unless opts[:report_names].include?(report.name)
+
+        period_name   = period[:name]
+        
+        _von          = period[:von]
+        _bis          = period[:bis]
+
+        von = _von.strftime("%Y-%m-%d 00:00:00")
+        bis = _bis.strftime("%Y-%m-%d 23:59:59")
+        
+        
+        puts "++++++++++++++++++++++"
+        puts "+++ #{report.name}"
+        puts "++++++++++++++++++++++"
+        sql = report.sql(von, bis, period_name)
+        puts sql
+      end
+    end
+    
     def self.print_dependency_tree(level=0, reports=@@reports)
       
       reports.each do |r|
