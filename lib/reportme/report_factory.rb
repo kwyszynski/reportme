@@ -439,9 +439,9 @@ module Reportme
       
     end
   
-    def self.report(name, temporary=false, &block)
+    def self.report(name, opts={}, &block)
       
-      r = Report.new(self, name, :temporary => temporary)
+      r = Report.new(self, name, opts)
       r.instance_eval(&block)
     
       @@reports << r
