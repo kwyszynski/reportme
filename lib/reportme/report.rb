@@ -4,15 +4,25 @@ module Reportme
     attr_accessor :name
     attr_accessor :setup_callback
     
-    def initialize(report_factory, name, temporary=false)
+    def initialize(report_factory, name, opts={})
       
       name = name.to_sym
+      
+      opts = {
+        :temporary => false,
+        :in_memory => false
+      }.merge(opts)
       
       @report_factory = report_factory
       @name = name
       @depends_on = []
       @histories = []
-      @temporary = temporary
+      @temporary = opts[:temporary]
+      @in_memory = opts[:in_memory]
+    end
+  
+    def in_memory?
+      @in_memory
     end
   
     def temporary?

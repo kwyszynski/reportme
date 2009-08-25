@@ -73,9 +73,11 @@ module Reportme
   
       unless table_exist?(table_name)
 
+        engine = report.in_memory? ? "MEMORY" : "InnoDB"
+
         sql = report.sql('0000-00-00 00:00:00', '0000-00-00 00:00:00', :day)
 
-        exec("create table #{table_name} ENGINE=InnoDB default CHARSET=utf8 as #{sql} limit 0;")
+        exec("create table #{table_name} ENGINE=#{engine} default CHARSET=utf8 as #{sql} limit 0;")
         exec("alter table #{table_name} modify von datetime;")
         exec("alter table #{table_name} add index(von);")
 
@@ -439,7 +441,7 @@ module Reportme
   
     def self.report(name, temporary=false, &block)
       
-      r = Report.new(self, name, temporary)
+      r = Report.new(self, name, :temporary => temporary)
       r.instance_eval(&block)
     
       @@reports << r
