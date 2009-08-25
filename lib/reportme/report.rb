@@ -10,19 +10,22 @@ module Reportme
       
       opts = {
         :temporary => false,
-        :in_memory => false
+        :engine => "InnoDB",
+        :table_prefix => nil
       }.merge(opts)
       
       @report_factory = report_factory
       @name = name
       @depends_on = []
       @histories = []
-      @temporary = opts[:temporary]
-      @in_memory = opts[:in_memory]
+
+      @temporary    = opts[:temporary]
+      @engine       = opts[:engine]
+      @table_prefix = opts[:table_prefix]
     end
   
-    def in_memory?
-      @in_memory
+    def engine
+      @engine
     end
   
     def temporary?
@@ -69,7 +72,9 @@ module Reportme
     end
   
     def table_name(period)
-      prefix = temporary? ? "tmp_" : ""
+      prefix = ""
+      prefix << "tmp_" if temporary?
+      prefix << @table_prefix + "_" if @table_prefix
       "#{prefix}#{name}_#{period}"
     end
   
