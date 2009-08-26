@@ -189,6 +189,8 @@ module Reportme
           run_dependency_aware(@@reports) do |report|
             __report_period(report, Period.calc(since, [period_name]).first)
           end
+          
+          yield(since) if block_given?
 
           since += 1.day
           break if since.future?
