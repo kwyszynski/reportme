@@ -84,6 +84,12 @@ module Reportme
           exec("alter table #{table_name} add index(_day);")
         end
         
+        fix_varchar_sql = "select table_name, column_name from information_schema.columns where TABLE_SCHEMA = '#{@@properties[:database]}' and data_type = 'varchar' and character_maximum_length < 255;"
+        
+        select_all(fix_varchar_sql).each do |row|
+          exec("alter table #{row['table_name']} modify #{row['column_name']} varchar(255)")
+        end
+        
         report.setup_callback.call(period_name) if report.setup_callback
       end
       
